@@ -1,5 +1,4 @@
-import { Bell, Search, User } from "lucide-react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Bell, Search, User, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +13,9 @@ import {
 export const Header = () => {
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-6">
-      <SidebarTrigger />
+      <Button variant="ghost" size="icon" className="md:hidden">
+        <Menu className="h-5 w-5" />
+      </Button>
       
       <div className="flex flex-1 items-center gap-4">
         <div className="relative flex-1 max-w-md">
