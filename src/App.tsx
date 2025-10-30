@@ -10,6 +10,7 @@ import ComplaintsRegister from "./pages/ComplaintsRegister";
 import ComplaintsQueue from "./pages/ComplaintsQueue";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,8 +22,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/login" element={<Login />} />
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/complaints" element={<Complaints />} />
             <Route path="/complaints/register" element={<ComplaintsRegister />} />
             <Route path="/complaints/queue" element={<ComplaintsQueue />} />
