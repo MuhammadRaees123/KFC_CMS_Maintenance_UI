@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DashboardLayout } from "./layouts/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import Complaints from "./pages/Complaints";
+import ComplaintsRegister from "./pages/ComplaintsRegister";
+import ComplaintsQueue from "./pages/ComplaintsQueue";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -22,6 +24,8 @@ const App = () => (
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/complaints" element={<Complaints />} />
+            <Route path="/complaints/register" element={<ComplaintsRegister />} />
+            <Route path="/complaints/queue" element={<ComplaintsQueue />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
