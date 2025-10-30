@@ -12,7 +12,9 @@ import {
 
 export const Header = () => {
   const handleLogout = () => {
-    console.log("Logging out...");
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("username");
+    window.location.href = "/login";
   };
 
   return (

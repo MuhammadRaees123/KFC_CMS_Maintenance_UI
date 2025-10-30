@@ -57,9 +57,14 @@ const Login = () => {
 
     setIsLoading(true);
     
-    // Simulate API call
+    // Dummy authentication - accepts any credentials
     setTimeout(() => {
       setIsLoading(false);
+      
+      // Set authentication status
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("username", formData.username);
+      
       toast({
         title: "Login Successful",
         description: "Welcome to KFC CMS Portal",
