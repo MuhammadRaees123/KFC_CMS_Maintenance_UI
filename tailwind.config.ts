@@ -19,6 +19,8 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        /* 👇 your custom brand color */
+        kfcRed: "#bc3342ff",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -65,11 +67,11 @@ export default {
           "5": "hsl(var(--chart-5))",
         },
       },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
+      // borderRadius: {
+      //   lg: "var(--radius)",
+      //   md: "calc(var(--radius) - 2px)",
+      //   sm: "calc(var(--radius) - 4px)",
+      // },
       keyframes: {
         "accordion-down": {
           from: {
@@ -92,6 +94,35 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },
+       fontSize: {
+    xs: ['0.7rem', { lineHeight: '1rem', letterSpacing: '0.01em' }],
+    sm: ['0.78rem', { lineHeight: '1.1rem', letterSpacing: '0.01em' }],
+    base: ['0.88rem', { lineHeight: '1.3rem', letterSpacing: '0.01em' }],
+    lg: ['1rem', { lineHeight: '1.4rem' }],
+    xl: ['1.1rem', { lineHeight: '1.5rem' }],
+  },
+  fontWeight: {
+    thin: '300',
+    normal: '400',
+    medium: '500',
+    semibold: '600',
+  },
+  spacing: {
+    1: '0.25rem',
+    2: '0.45rem',
+    3: '0.65rem',
+    4: '0.85rem',
+    5: '1rem',
+  },
+  borderRadius: {
+    sm: '3px',
+    md: '4px',
+    lg: '6px',
+  },
+  boxShadow: {
+    subtle: '0 1px 2px rgba(0,0,0,0.08)',
+  },
+  
     },
   },
   plugins: [require("tailwindcss-animate")],

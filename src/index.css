@@ -1,11 +1,93 @@
+@import "leaflet/dist/leaflet.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
 
+/* ------------------------------
+   🌈 GLOBAL TYPOGRAPHY + SPACING
+------------------------------ */
+@layer base {
+  html {
+    font-size: 15.5px;
+  }
+
+  body {
+    @apply text-sm font-normal leading-tight text-gray-800 bg-[#f8f9fa];
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-base font-semibold text-gray-900;
+  }
+
+  label {
+    @apply text-xs font-medium text-gray-600;
+  }
+
+  input, select, textarea {
+    @apply text-sm rounded-md border-gray-300;
+  }
+
+  button {
+    @apply text-sm font-medium;
+  }
+
+  table th {
+    @apply text-xs uppercase tracking-wide font-semibold text-gray-600 bg-gray-100;
+  }
+
+  table td {
+    @apply text-sm text-gray-800;
+  }
+
+  .card {
+    @apply shadow-sm border border-gray-200 rounded-md bg-[#fff8ee];
+  }
+}
+
+/* ------------------------------
+   🧱 COMPONENT CLASSES
+------------------------------ */
+@layer components {
+  .kfc-card {
+    @apply border border-gray-200 rounded-lg shadow-sm bg-[#fff8ee];
+  }
+
+  .kfc-card-header {
+    @apply bg-[#fff6f6] border-b border-[#bc3342]/20 text-[#bc3342] 
+           font-semibold px-4 py-2 text-sm uppercase tracking-wide;
+  }
+
+  .kfc-form {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700;
+  }
+
+  .kfc-label {
+    @apply text-xs font-medium text-gray-600 mb-1;
+  }
+
+  .kfc-input {
+    @apply border border-gray-300 rounded-md px-2.5 py-1.5 text-sm w-full;
+  }
+
+  .kfc-switch {
+    @apply flex items-center justify-between mt-1 text-xs font-medium;
+  }
+
+  .kfc-btn {
+    @apply bg-[#bc3342] hover:bg-[#a82d3a] text-white font-medium 
+           px-4 py-2 rounded-md shadow-sm text-sm transition;
+  }
+
+  .kfc-btn-outline {
+    @apply border border-gray-300 text-gray-700 hover:bg-gray-100 
+           rounded-md px-4 py-2 text-sm;
+  }
+}
+
+/* ------------------------------
+   🎨 KFC BRAND THEME COLORS (HSL)
+------------------------------ */
 @layer base {
   :root {
     --background: 0 0% 98%;
@@ -17,7 +99,8 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
 
-    --primary: 348 100% 45%;
+    /* ✅ KFC Red */
+    --primary: 350 58% 47%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 96%;
@@ -26,29 +109,30 @@ All colors MUST be HSL.
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
 
-    --accent: 348 100% 55%;
+    --accent: 350 58% 47%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 350 58% 47%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 0 0% 90%;
     --input: 0 0% 90%;
-    --ring: 348 100% 45%;
+    --ring: 350 58% 47%;
 
     --radius: 0.5rem;
 
+    /* ✅ Sidebar & Charts */
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 348 100% 45%;
+    --sidebar-primary: 350 58% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 15%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 348 100% 45%;
+    --sidebar-ring: 350 58% 47%;
 
-    --chart-1: 348 100% 45%;
-    --chart-2: 348 100% 35%;
+    --chart-1: 350 58% 47%;
+    --chart-2: 350 58% 42%;
     --chart-3: 0 0% 45%;
     --chart-4: 0 0% 60%;
     --chart-5: 0 0% 75%;
@@ -57,32 +141,23 @@ All colors MUST be HSL.
   .dark {
     --background: 0 0% 10%;
     --foreground: 0 0% 98%;
-
     --card: 0 0% 12%;
     --card-foreground: 0 0% 98%;
-
     --popover: 0 0% 12%;
     --popover-foreground: 0 0% 98%;
-
     --primary: 348 100% 45%;
     --primary-foreground: 0 0% 100%;
-
     --secondary: 0 0% 20%;
     --secondary-foreground: 0 0% 98%;
-
     --muted: 0 0% 20%;
     --muted-foreground: 0 0% 65%;
-
     --accent: 348 100% 55%;
     --accent-foreground: 0 0% 100%;
-
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 348 100% 45%;
-    
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 90%;
     --sidebar-primary: 348 100% 45%;
@@ -91,7 +166,6 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 15%;
     --sidebar-ring: 348 100% 45%;
-
     --chart-1: 348 100% 45%;
     --chart-2: 348 100% 35%;
     --chart-3: 0 0% 45%;
@@ -100,6 +174,9 @@ All colors MUST be HSL.
   }
 }
 
+/* ------------------------------
+   ✨ BASE UTILITIES
+------------------------------ */
 @layer base {
   * {
     @apply border-border;
@@ -107,5 +184,58 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+
+    
   }
 }
+
+.highcharts-background {
+  fill: transparent;
+}
+
+.highcharts-tooltip-box {
+  fill: white !important;
+  stroke: rgba(0,0,0,0.1) !important;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.1));
+}
+
+.highcharts-title,
+.highcharts-axis-labels text {
+  fill: #444 !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+
+/* 🌤️ Global Dashboard Background */
+body {
+  background-color: #f3f6fa; /* soft bluish-gray */
+  background-image: radial-gradient(circle at 20% 20%, #f8fafc 0%, #eef2f7 100%);
+  color: #1a1a1a;
+  font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+}
+
+
+
+/* Optional: smooth scroll + card transition polish */
+html {
+  scroll-behavior: smooth;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.08);
+}
+
+.sidebar {
+  background-color: #d9232e;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
