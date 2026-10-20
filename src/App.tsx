@@ -14,6 +14,8 @@ import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import MenuManagement from "./pages/MenuManagement";
 import RoleMenuAccess from "./pages/RoleMenuAccess";
+import UserRoles from "./pages/UserRoles/UserRoles";
+import Users from "./pages/Users/Users";
 import Login from "./pages/Login";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
@@ -23,13 +25,26 @@ import { isAuthenticated } from "@/types/auth";
 import PrivateRoute from "@/components/auth/PrivateRoute";
 import { loadAllowedRoutes } from "@/services/api";
 import GeneralDashboard from "@/pages/Dashboards/GeneralDashboard";
-import AgentPerformanceDashboard from "@/pages/Dashboards/AgentPerformanceDashboard";
+import FoodAnalyticsDashboard from "@/pages/Dashboards/FoodAnalyticsDashboard";
 import BranchPerformanceDashboard from "@/pages/Dashboards/BranchPerformanceDashboard";
 import ChannelAnalysisDashboard from "@/pages/Dashboards/ChannelAnalysisDashboard";
 import CustomerSentimentDashboard from "@/pages/Dashboards/CustomerSentimentDashboard";
 import RiderPerformanceDashboard from "@/pages/Dashboards/RiderPerformanceDashboard";
 import SLAMonitoringDashboard from "@/pages/Dashboards/SLAMonitoringDashboard";
-
+import RiderPerformanceReport from "./pages/Reports/RiderPerformanceReport";
+import KhadimDashboard from "./pages/Khadim/KhadimDashboard";
+import BranchAccessManagement from "./pages/BranchAccessManagement";
+import BranchComparisonReport from "./pages/Reports/BranchComparisonReport";
+import InventoryCategories from "./pages/Inventory/Categories";
+import InventoryItems from "./pages/Inventory/Items";
+import InventoryAssets from "./pages/Inventory/Assets";
+import InventoryMaintenance from "./pages/Inventory/Maintenance";
+import InventoryMaintenanceDetail from "./pages/Inventory/MaintenanceDetail";
+import InventoryBranchAgentTasks from "./pages/Inventory/BranchAgentTasks";
+import InventoryTechnicianDashboard from "./pages/Inventory/TechnicianDashboard";
+import InventoryComplaint from "./pages/Inventory/InventoryComplaint";
+import InventoryComplaintAnalytics from "./pages/Inventory/ComplaintAnalytics";
+import InventoryBranchInventoryAnalytics from "./pages/Inventory/BranchInventoryAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -135,7 +150,7 @@ const App = () => {
         <Toaster />
         <Sonner />
 
-        <BrowserRouter>
+        {/* <BrowserRouter> */}
           <NavigationBridge />
 
           <Routes>
@@ -169,7 +184,7 @@ const App = () => {
               {/* Pages auto-guarded via PrivateRoute */}
               {/* <Route path="/dashboard" element={<Dashboard />} /> */}
               <Route path="/dashboards/gdc" element={<GeneralDashboard />} />
-              <Route path="/dashboards/ap" element={<AgentPerformanceDashboard />} />
+              <Route path="/dashboards/ap" element={<FoodAnalyticsDashboard />} />
               <Route path="/dashboards/bp" element={<BranchPerformanceDashboard />} />
               <Route path="/dashboards/can" element={<ChannelAnalysisDashboard />} />
               <Route path="/dashboards/cs" element={<CustomerSentimentDashboard />} />
@@ -177,21 +192,36 @@ const App = () => {
                <Route path="/dashboards/slem" element={<SLAMonitoringDashboard />} />
               <Route path="/complaints" element={<Complaints />} />
               <Route path="/complaints/list" element={<Complaints />} />
+              <Route path="/Khadim/KhadimDashboard" element={<KhadimDashboard />} />
               <Route
                 path="/complaints/register"
                 element={<ComplaintsRegister />}
               />
               <Route path="/complaints/queue" element={<ComplaintsQueue />} />
-              <Route path="/reports" element={<Reports />} />
+              <Route path="/reports/rpr" element={<RiderPerformanceReport />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/menu-management" element={<MenuManagement />} />
               <Route path="/role-menu-access" element={<RoleMenuAccess />} />
+              <Route path="/user-roles" element={<UserRoles />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/bam" element={<BranchAccessManagement />} />
+               <Route path="/reports/bcr" element={<BranchComparisonReport />} />
+              <Route path="/inventory/categories" element={<InventoryCategories />} />
+              <Route path="/inventory/items" element={<InventoryItems />} />
+              <Route path="/inventory/assets" element={<InventoryAssets />} />
+              <Route path="/inventory/inventory-complaint" element={<InventoryComplaint />} />
+              <Route path="/inventory/complaint-analytics" element={<InventoryComplaintAnalytics />} />
+              <Route path="/inventory/branch-inventory-analytics" element={<InventoryBranchInventoryAnalytics />} />
+              <Route path="/inventory/maintenance" element={<InventoryMaintenance />} />
+              <Route path="/inventory/maintenance/:id" element={<InventoryMaintenanceDetail />} />
+              <Route path="/inventory/branch-agent-tasks" element={<InventoryBranchAgentTasks />} />
+              <Route path="/inventory/technician-dashboard" element={<InventoryTechnicianDashboard />} />
             </Route>
 
             {/* 🚫 Catch-All */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
+        {/* </BrowserRouter>*/}
       </TooltipProvider>
     </QueryClientProvider>
   );

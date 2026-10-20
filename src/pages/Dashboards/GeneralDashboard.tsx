@@ -34,6 +34,7 @@ import StoreWiseHeatmap from "@/components/Dashboard/StoreWiseHeatmap";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "@/config/highchartsSetup";
 import { ArrowUp } from "lucide-react";
+import DashboardFilters from "@/components/DashboardFilters";
 
 // ✅ Register chart components
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -86,6 +87,9 @@ const BackToTopButton = () => {
 };
 
 const GeneralDashboard: React.FC = () => {
+
+
+   const [refreshKey, setRefreshKey] = useState(0);  // ✅ YAHAN
   const [stats, setStats] = useState<ComplaintStats>({
     totalComplaints: 0,
     pendingOnBranch: 0,
@@ -139,63 +143,128 @@ const GeneralDashboard: React.FC = () => {
   //   }, []);
 
 
-  useEffect(() => {
+  // useEffect(() => {
 
-    const loadFilterAccess = async () => {
-      try {
-        const res = await getDashboardFilterAccess();
-        if (res.data) {
-          setCanViewRegion(res.data.canViewRegion);
-          setCanViewBranch(res.data.canViewBranch);
+  //   const loadFilterAccess = async () => {
+  //     try {
+  //       const res = await getDashboardFilterAccess();
+  //       if (res.data) {
+  //         setCanViewRegion(res.data.canViewRegion);
+  //         setCanViewBranch(res.data.canViewBranch);
 
-          // Load regions if allowed
-          if (res.data.canViewRegion) {
-            const regionRes = await getRegionsForDashboard();
-            if (regionRes.data) {
-              setRegions(regionRes.data);
-            }
-          }
+  //         // Load regions if allowed
+  //         if (res.data.canViewRegion) {
+  //           const regionRes = await getRegionsForDashboard();
+  //           if (regionRes.data) {
+  //             setRegions(regionRes.data);
+  //           }
+  //         }
 
-          // Load branches if allowed (for preselection or region change)
-          if (res.data.canViewBranch) {
-            const branchRes = await getBranchesForDashboard(res.data.defaultRegionId);
-            if (branchRes.data) {
-              setBranches(branchRes.data);
-            }
+  //         // Load branches if allowed (for preselection or region change)
+  //         if (res.data.canViewBranch) {
+  //           const branchRes = await getBranchesForDashboard(res.data.defaultRegionId);
+  //           if (branchRes.data) {
+  //             setBranches(branchRes.data);
+  //           }
 
-            if (res.data.defaultRegionId) setSelectedRegion(res.data.defaultRegionId);
-            if (res.data.defaultBranchId) setSelectedBranch(res.data.defaultBranchId);
-          }
+  //           if (res.data.defaultRegionId) setSelectedRegion(res.data.defaultRegionId);
+  //           if (res.data.defaultBranchId) setSelectedBranch(res.data.defaultBranchId);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching filter access:", error);
+  //     }
+  //   };
+
+  //   loadFilterAccess();
+
+
+  //   const today = new Date();
+  //   const sevenDaysAgo = new Date();
+  //   sevenDaysAgo.setDate(today.getDate() - 7);
+
+  //   const defaultStart = sevenDaysAgo.toISOString().slice(0, 16);
+  //   const defaultEnd = today.toISOString().slice(0, 16);
+
+  //   setStartDate(defaultStart);
+  //   setEndDate(defaultEnd);
+
+  //   // Fetch summary + charts once defaults are ready
+  //   setTimeout(() => {
+  //     fetchSummary(defaultStart, defaultEnd);
+  //     fetchTrend("day");
+  //     fetchTopComplaintTypes();
+  //     fetchStoreWiseComplaints(defaultStart, defaultEnd);
+  //     fetchChannelWise(defaultStart, defaultEnd);
+  //     fetchSourceWiseComplaints(defaultStart, defaultEnd);
+  //   }, 200);
+
+  // }, []);
+
+
+  // --------------------------------------------
+// 1) Load Region/Branch access + defaults (RUN ONCE)
+// --------------------------------------------
+useEffect(() => {
+  const loadFilterAccess = async () => {
+    try {
+      const res = await getDashboardFilterAccess();
+      if (res.data) {
+        setCanViewRegion(res.data.canViewRegion);
+        setCanViewBranch(res.data.canViewBranch);
+
+        // Load Regions
+        if (res.data.canViewRegion) {
+          const regionRes = await getRegionsForDashboard();
+          if (regionRes.data) setRegions(regionRes.data);
         }
-      } catch (error) {
-        console.error("Error fetching filter access:", error);
+
+        // Load Branches
+        if (res.data.canViewBranch) {
+          const branchRes = await getBranchesForDashboard(res.data.defaultRegionId);
+          if (branchRes.data) setBranches(branchRes.data);
+
+          if (res.data.defaultRegionId) setSelectedRegion(res.data.defaultRegionId);
+          if (res.data.defaultBranchId) setSelectedBranch(res.data.defaultBranchId);
+        }
       }
-    };
+    } catch (error) {
+      console.error("Error fetching filter access:", error);
+    }
+  };
 
-    loadFilterAccess();
+  loadFilterAccess();
+
+  // Default 7-day range
+  const today = new Date();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(today.getDate() - 7);
+
+  const defaultStart = sevenDaysAgo.toISOString().slice(0, 16);
+  const defaultEnd = today.toISOString().slice(0, 16);
+
+  setStartDate(defaultStart);
+  setEndDate(defaultEnd);
+
+  setTimeout(() => {
+  setRefreshKey(k => k + 1);
+}, 100);
+}, []);
 
 
-    const today = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 7);
+useEffect(() => {
+  if (!startDate || !endDate) return;
 
-    const defaultStart = sevenDaysAgo.toISOString().slice(0, 16);
-    const defaultEnd = today.toISOString().slice(0, 16);
+  fetchSummary(startDate, endDate);
+  fetchTrend("day");  
+  fetchTopComplaintTypes();
+  fetchStoreWiseComplaints(startDate, endDate);
+  fetchChannelWise(startDate, endDate);
+  fetchSourceWiseComplaints(startDate, endDate);
 
-    setStartDate(defaultStart);
-    setEndDate(defaultEnd);
+}, [refreshKey]);   // <-- ONLY refreshKey triggers new API load
 
-    // Fetch summary + charts once defaults are ready
-    setTimeout(() => {
-      fetchSummary(defaultStart, defaultEnd);
-      fetchTrend("day");
-      fetchTopComplaintTypes();
-      fetchStoreWiseComplaints(defaultStart, defaultEnd);
-      fetchChannelWise(defaultStart, defaultEnd);
-      fetchSourceWiseComplaints(defaultStart, defaultEnd);
-    }, 200);
 
-  }, []);
 
   const fetchChannelWise = async (
     start?: string,
@@ -584,86 +653,31 @@ const GeneralDashboard: React.FC = () => {
         </button>
       </div> */}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-100">
 
-        {/* 🏙️ Region */}
-        {canViewRegion && (
-          <div className="flex items-center gap-2">
-            <label className="text-gray-600 text-sm font-medium whitespace-nowrap">Region:</label>
-            <select
-              value={selectedRegion ?? ""}
-              onChange={(e) => {
-                const regionId = parseInt(e.target.value);
-                setSelectedRegion(regionId);
-                getBranchesForDashboard(regionId).then((res) => {
-                  if (res.data) setBranches(res.data);
-                });
-              }}
-              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-            >
-              <option value="">-- Select Region --</option>
-              {regions.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
-        {/* 🏢 Branch */}
-        {canViewBranch && (
-          <div className="flex items-center gap-2">
-            <label className="text-gray-600 text-sm font-medium whitespace-nowrap">Branch:</label>
-            <select
-              value={selectedBranch ?? ""}
-              onChange={(e) => setSelectedBranch(parseInt(e.target.value))}
-              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-            >
-              <option value="">-- Select Branch --</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
-        {/* 🕒 Start Date */}
-        <div className="flex items-center gap-2">
-          <label className="text-gray-600 text-sm font-medium whitespace-nowrap">Start Date:</label>
-          <input
-            type="datetime-local"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-          />
-        </div>
+<DashboardFilters
+  regions={regions}
+  branches={branches}
+  canViewRegion={canViewRegion}
+  canViewBranch={canViewBranch}
+  onRegionChange={async (id) => {
+    const res = await getBranchesForDashboard(id);
+    setBranches(res?.data || []);
+  }}
+  onApply={({ startDate, endDate, regionId, branchId }) => {
 
-        {/* 🕓 End Date */}
-        <div className="flex items-center gap-2">
-          <label className="text-gray-600 text-sm font-medium whitespace-nowrap">End Date:</label>
-          <input
-            type="datetime-local"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-          />
-        </div>
+    setStartDate(startDate);
+    setEndDate(endDate);
+    setSelectedRegion(regionId);
+    setSelectedBranch(branchId);
 
-        {/* 🔘 Apply Filter — Full Row */}
-        <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 flex justify-center mt-2">
-          <button
-            onClick={handleApplyFilter}
-            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded text-sm font-semibold transition"
-          >
-            Apply Filter
-          </button>
-        </div>
 
-      </div>
+    setRefreshKey(k => k + 1);   // <--- SINGLE POINT OF REFRESH
+    //handleApplyFilter();
 
+  }}
+/>
 
 
 
@@ -908,7 +922,7 @@ const GeneralDashboard: React.FC = () => {
                   shadow: true,
                   style: { fontSize: "12px" },
                   formatter: function () {
-                    return `<b>${this.x}</b><br/>Complaints: <b>${this.y}</b>`;
+                    return `<b>${this.key}</b><br/>Complaints: <b>${this.y}</b>`;
                   },
                 },
                 series: [

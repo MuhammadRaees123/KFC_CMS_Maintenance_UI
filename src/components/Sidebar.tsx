@@ -7,11 +7,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown, Loader2, Menu } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger,  SheetTitle,SheetDescription } from "@/components/ui/sheet";
 import { getMenuByRole } from "@/services/api";
 import kfcLogo from "@/assets/kfc-logo-new1.png";
 import * as LucideIcons from "lucide-react";
 import DataTable from "react-data-table-component";
+import React from "react";
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+
 
 interface SubMenu {
   id: number;
@@ -28,11 +31,18 @@ interface MenuItem {
   subMenus: SubMenu[];
 }
 
-export const Sidebar = () => {
+type SidebarProps = {
+  mobileOpen: boolean;
+  setMobileOpen: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export const Sidebar = ({ mobileOpen, setMobileOpen }: SidebarProps) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>("");
+
+  const normalize = (url: string) => (url?.startsWith("/") ? url : `/${url}`);
 
   // 🔹 Load menus either from localStorage or API
   useEffect(() => {
@@ -175,7 +185,7 @@ export const Sidebar = () => {
           return (
             <NavLink
               key={item.id}
-              to={item.url}
+              to={normalize(item.url)}
               end
               className={({ isActive }) =>
                 cn(
@@ -197,14 +207,14 @@ export const Sidebar = () => {
     </nav>
   );
 
-  if (loading) {
-    return (
-      <aside className="hidden md:flex w-64 flex-col bg-[#121212] border-r border-gray-800 items-center justify-center">
-        <Loader2 className="animate-spin h-6 w-6 text-gray-500" />
-        <p className="text-xs text-gray-400 mt-2">Loading menu...</p>
-      </aside>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <aside className="hidden md:flex w-64 flex-col bg-[#121212] border-r border-gray-800 items-center justify-center">
+  //       <Loader2 className="animate-spin h-6 w-6 text-gray-500" />
+  //       <p className="text-xs text-gray-400 mt-2">Loading menu...</p>
+  //     </aside>
+  //   );
+  // }
 
   return (
     <>
@@ -221,13 +231,20 @@ export const Sidebar = () => {
           </div>
         )}
 
-        {renderMenuContent()}
+      {loading ? (
+    <div className="flex-1 flex flex-col items-center justify-center">
+      <Loader2 className="animate-spin h-6 w-6 text-gray-500" />
+      <p className="text-xs text-gray-400 mt-2">Loading menu...</p>
+    </div>
+  ) : (
+    renderMenuContent()
+  )}
       </aside>
 
       {/* 📱 Mobile */}
-      <div className="md:hidden fixed top-0 left-0 w-full z-50 bg-[#121212] border-b border-gray-800 flex items-center justify-between px-4 py-3 shadow-sm text-white">
+      {/* <div className="md:hidden fixed top-0 left-0 w-full z-50 bg-[#121212] border-b border-gray-800 flex items-center justify-between px-4 py-3 shadow-sm text-white">
         <div className="flex items-center gap-2">
-          <Sheet>
+          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
               <button className="text-white focus:outline-none">
                 <Menu className="h-6 w-6 hover:text-[#ff4757] transition-colors" />
@@ -249,7 +266,43 @@ export const Sidebar = () => {
           </Sheet>
           <span className="font-semibold text-white">KFC CMS</span>
         </div>
+      </div> */}
+      {/* 📱 Mobile Sidebar — controlled from Header */}
+<Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+  <SheetContent
+    side="left"
+    className="w-64 p-0 bg-[#121212] text-white z-[60]"
+  >
+    <VisuallyHidden>
+    <SheetTitle>Application Navigation</SheetTitle>
+    <SheetDescription>
+      Main navigation sidebar for dashboard
+    </SheetDescription>
+  </VisuallyHidden>
+    <div className="flex items-center justify-center px-3 py-4 border-b border-gray-700 bg-[#1b1b1b]">
+      <img
+        src={kfcLogo}
+        alt="KFC Logo"
+        className="max-h-12 object-contain"
+      />
+    </div>
+
+    {userRole && (
+      <div className="px-3 py-2 text-xs uppercase text-gray-400 border-b border-gray-700 bg-[#141414]">
+        Role: <span className="text-white font-medium">{userRole}</span>
       </div>
+    )}
+
+     {loading ? (
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <Loader2 className="animate-spin h-6 w-6 text-gray-500" />
+      </div>
+    ) : (
+      renderMenuContent()
+    )}
+  </SheetContent>
+</Sheet>
+
     </>
   );
 };

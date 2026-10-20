@@ -6,13 +6,81 @@ import { navigateTo } from "@/utils/navigation";
 /* ----------------------------
    Axios Base Configuration
 ----------------------------- */
+
+// const resolveBaseURL = () => {
+//   const { origin } = window.location;
+
+//   // 🔴 Production – IIS Virtual Directory
+//   if (origin.includes("https://kfcisb.ufone.com") ){
+//     return "https://kfcisb.ufone.com/KFC_CMS_API/api";
+//   }
+
+//   // 🟡 Staging / UAT (example)
+//   else if (origin.includes("172.16.35.5:125") ){
+//     return "http://172.16.35.5:125/KFC_CMS_API/api";
+//   }
+
+//   else if (origin.includes("172.16.35.6:125") ){
+//     return "http://172.16.35.5:125/KFC_CMS_API/api";
+//   }
+
+//   // else if (origin.includes("172.16.35.6:125") ) {
+//   //   return "http://localhost:125/KFC_CMS_API/api";
+//   // }
+
+//   else
+//   {
+//     return import.meta.env.VITE_API_BASE_URL || "http://localhost:5027/api";
+//   }
+
+//   // else if (origin.includes("192") ){
+//   //   return "http://172.16.35.5:125/KFC_CMS_API/api";
+//   // }
+  
+//   // 🟢 Local fallback
+//   //return import.meta.env.VITE_API_BASE_URL || "http://localhost:5027/api";
+// };
+
+
+const resolveBaseURL = () => {
+  const { origin } = window.location;
+
+  const API_PATH = "/KFCMaintenanceAPI/api";
+
+  // 🔴 Production
+  if (origin === "https://hds.kfcpakistan.com") {
+    return `${origin}${API_PATH}`;
+  }
+
+  // 🟡 Internal / UAT
+  if (
+    origin === "http://172.16.35.5:125" ||
+    origin === "http://172.16.35.6:125"
+  ) {
+    return `${origin}${API_PATH}`;
+  }
+
+  // 🟢 Local / fallback
+  return import.meta.env.VITE_API_BASE_URL || "https://localhost:44366/api";
+  //https://localhost:44366/swagger/index.html
+};
+
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "https://localhost:7278/api",
-  timeout: 30000,
+  baseURL: resolveBaseURL(),
+  timeout: 220000,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+// const api = axios.create({
+//   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:5027/api",
+//   timeout: 30000,
+//   headers: {
+//     "Content-Type": "application/json",
+//   },
+// });
 
 /* ----------------------------
    Request Interceptor
@@ -219,7 +287,7 @@ export const getRegionsForDashboard = async () => {
 };
 
 // Get branch list (filtered by region)
-export const getBranchesForDashboard = async (regionId?: number) => {
+export const getBranchesForDashboard = async (regionId?: number ) => {
   const res = await api.get(`/dashboard/GetBranchesForDashboard?regionId=${regionId ?? 0}`);
   return res;
 };
@@ -353,17 +421,24 @@ export const loadAllowedRoutes = async (): Promise<string[]> => {
     const response = await api.get("/menu/GetMenuByRole");
 
     // Expecting array of menus/submenus from backend
-    let menus = Array.isArray(response.data)
+    const menus = Array.isArray(response.data)
       ? response.data
       : JSON.parse(response.data || "[]");
 
     const routes: string[] = [];
 
+    const normalizeMenuUrl = (url: string): string => {
+      const trimmed = url.trim().toLowerCase();
+      if (!trimmed || trimmed === ".") return "";
+      return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+    };
+
     const extractRoutes = (menuList: any[]) => {
       for (const menu of menuList) {
         // only include valid, non-empty URLs
         if (menu.url && menu.url.trim() !== "." && menu.url.trim() !== "") {
-          routes.push(menu.url.toLowerCase());
+          const normalized = normalizeMenuUrl(menu.url);
+          if (normalized) routes.push(normalized);
         }
         if (menu.subMenus && menu.subMenus.length > 0) {
           extractRoutes(menu.subMenus);
@@ -377,7 +452,7 @@ export const loadAllowedRoutes = async (): Promise<string[]> => {
     localStorage.setItem("allowedRoutes", JSON.stringify(routes));
     localStorage.setItem("allowedRoutesFetchedAt", Date.now().toString());
 
-    console.log("✅ Routes loaded for role:", routes);
+   // console.log("✅ Routes loaded for role:", routes);
     return routes; // ✅ return usable array
   } catch (error) {
     console.error("❌ Error loading allowed routes:", error);
@@ -396,10 +471,73 @@ export const restoreMenu = async (id: number) => await api.put(`/menu/restoreMen
 export const getUsersByRole = (roleId: number) =>
   api.get(`/menu/GetUsersByRole/${roleId}`);
 
+export const getMaintenanceAssignUsers = () =>
+  api.get("/menu/GetMaintenanceAssignUsers");
+
 /* ----------------------------
    Role & Access Management
 ----------------------------- */
 export const getAllRoles = () => api.get("/menu/GetAllRoles");
+
+export const getRoles = () => api.get("/Role");
+
+export const addRole = (data: {
+  Name: string;
+  Access_Type?: string | null;
+  Description?: string | null;
+  RoleId?: string | null;
+}) => api.post("/Role", data);
+
+export const updateRole = (
+  id: number,
+  data: {
+    Name: string;
+    Access_Type?: string | null;
+    Description?: string | null;
+    RoleId?: string | null;
+  }
+) => api.put(`/Role/${id}`, data);
+
+export const deleteRole = (id: number) => api.delete(`/Role/${id}`);
+
+export const getUsers = () => api.get("/User");
+
+export const getUserById = (id: number) => api.get(`/User/${id}`);
+
+export const addUser = (data: {
+  Name: string;
+  UserName: string;
+  Password: string;
+  Access_Type: string;
+  Branch: number;
+  Address?: string | null;
+  Designation?: string | null;
+  CellNumber?: string | null;
+  regionID: number;
+  RoleId?: string | null;
+  RoleText?: string | null;
+  email?: string | null;
+}) => api.post("/User", data);
+
+export const updateUser = (
+  id: number,
+  data: {
+    Name: string;
+    UserName: string;
+    Password?: string | null;
+    Access_Type: string;
+    Branch: number;
+    Address?: string | null;
+    Designation?: string | null;
+    CellNumber?: string | null;
+    regionID: number;
+    RoleId?: string | null;
+    RoleText?: string | null;
+    email?: string | null;
+  }
+) => api.put(`/User/${id}`, data);
+
+export const deleteUser = (id: number) => api.delete(`/User/${id}`);
 
 export const getRoleMenuAccess = (roleId: number, userId?: number) =>
   api.get(`/menu/GetRoleMenuAccess?roleId=${roleId}${userId ? `&userId=${userId}` : ""}`);
@@ -436,7 +574,7 @@ export const loginUser = async (credentials: {
     const res = await api.post<LoginResponse>("/auth/login", credentials);
     const data = res.data;
 
-    console.log("🔹 Login API Response:", data);
+   // console.log("🔹 Login API Response:", data);
 
     if (data?.token && data?.user) {
       // 2️⃣ Store token & user immediately
@@ -462,7 +600,7 @@ export const loginUser = async (credentials: {
       // 4️⃣ Fetch role-based menus and allowed routes
       const allowed = await loadAllowedRoutes();
 
-      console.log("✅ allowedRoutes fetched:", allowed);
+     // console.log("✅ allowedRoutes fetched:", allowed);
       if (!allowed || allowed.length === 0)
         console.warn("⚠️ No routes found for this role — check /menu/GetMenuByRole");
 
@@ -624,6 +762,1220 @@ export const getComplaintList = async (params: {
   }
 };
 
+//Report APIs can be added here similarly
 
+export const exportRiderPerformanceReport = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null,
+  riderId?: number | null
+) => {
+  const params = new URLSearchParams();
+
+  if (startDate) params.append("startDate", startDate);
+  if (endDate) params.append("endDate", endDate);
+  if (regionId) params.append("regionId", regionId.toString());
+  if (branchId) params.append("branchId", branchId.toString());
+  if (riderId) params.append("riderId", riderId.toString());
+
+  const response = await api.get(`/reports/ExportRPSummary?${params.toString()}`, {
+    responseType: "blob",
+  });
+
+  // Download Excel file
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", "RiderPerformanceReport.xlsx");
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
+export interface RiderPerformance {
+  region: string;
+  branchName: string;
+  riderName: string;
+  employeeID: string;
+  riderStatus: string;
+  totalOrders: number;
+  deliveredOrders: number;
+  cancelRejectOrders: number;
+  cancelRejectPct: number;
+  complaints: number;
+  complaintsPct: number;
+  invalidComplaints: number;
+  sosPct: number;
+  sosMinutes: number;
+  istMinutes: number;
+  istPct: number;
+  workingDays: number;
+  productivity: number;
+  perDayOrders: number;
+}
+
+export const getRiderPerformanceReport = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null,
+  riderId?: number | null
+): Promise<RiderPerformance[]> => {
+  try {
+    const res = await api.get<RiderPerformance[]>("/reports/GetRPSummary", {
+      params: {
+        startDate: startDate || "",
+        endDate: endDate || "",
+        regionId: regionId ?? 0,
+        branchId: branchId ?? 0,
+        riderId: riderId ?? 0,
+      },
+    });
+
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching rider performance report:", error);
+    throw error;
+  }
+};
+
+
+export const getRidersForBranch = async (params: {
+  
+  branchId?: number | null;
+}) => {
+  try {
+    const query = new URLSearchParams();
+
+    
+    if (params.branchId) query.append("branchId", params.branchId.toString());
+   
+
+    const res = await api.get(`/Reports/GetRidersForBranch?${query.toString()}`);
+    return res;
+  } catch (error) {
+    console.error("Error fetching Rider Performance Report:", error);
+    throw error;
+  }
+};
+
+
+//KHADIM APIs can be added here similarly
+// 🟦 KHADIM: Summary
+export const getKhadimSummary = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/khadimDashboard/GetSummary?`;
+    const params: string[] = [];
+
+    if (startDate && endDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+
+    if (regionId !== null && regionId !== undefined)
+      params.push(`regionId=${regionId}`);
+
+    if (branchId !== null && branchId !== undefined)
+      params.push(`branchId=${branchId}`);
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res;
+  } catch (error) {
+    console.error("Error fetching Khadim summary:", error);
+    throw error;
+  }
+};
+
+
+// 🟦  Khadim Dashboard – Category Wise Summary
+export const getKhadimCategorySummary = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/khadimDashboard/GetKhadimCategorySummary?`;
+    const params: string[] = [];
+
+    if (startDate && endDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+
+    if (regionId !== null && regionId !== undefined) {
+      params.push(`regionId=${regionId}`);
+    }
+
+    if (branchId !== null && branchId !== undefined) {
+      params.push(`branchId=${branchId}`);
+    }
+
+    if (params.length) {
+      url += params.join("&");
+    }
+
+    const res = await api.get(url);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching Khadim category summary:", error);
+    throw error;
+  }
+};
+
+// Department summary
+export const getKhadimDepartmentSummary = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/khadimDashboard/GetKhadimDepartmentSummary?`;
+    const params: string[] = [];
+    if (startDate && endDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+    if (regionId !== null && regionId !== undefined) params.push(`regionId=${regionId}`);
+    if (branchId !== null && branchId !== undefined) params.push(`branchId=${branchId}`);
+    if (params.length) url += params.join("&");
+    const res = await api.get(url);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching department summary", error);
+    throw error;
+  }
+};
+
+// Department trend
+export const getKhadimDepartmentTrend = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null,
+  topN: number = 5
+) => {
+  try {
+    let url = `/khadimDashboard/GetKhadimDepartmentTrend?topN=${topN}`;
+    const params: string[] = [];
+    if (startDate && endDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+    if (regionId !== null && regionId !== undefined) params.push(`regionId=${regionId}`);
+    if (branchId !== null && branchId !== undefined) params.push(`branchId=${branchId}`);
+    if (params.length) url += `&` + params.join("&");
+    const res = await api.get(url);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching department trend", error);
+    throw error;
+  }
+};
+
+
+// 🟥  Branch-Wise Complaint Leaderboard
+export const getKhadimBranchLeaderboard = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/khadimDashboard/GetBranchWiseSummary?`;
+    const params: string[] = [];
+
+    if (startDate && endDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+
+    if (regionId !== null && regionId !== undefined) {
+      params.push(`regionId=${regionId}`);
+    }
+
+    if (branchId !== null && branchId !== undefined) {
+      params.push(`branchId=${branchId}`);
+    }
+
+    if (params.length > 0) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching Branch Leaderboard:", error);
+    throw error;
+  }
+};
+
+// 🟥  Repeat Complaints
+export const getKhadimRepeatComplaints = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/KhadimDashboard/GetKhadimRepeatComplaints?`;
+    const params: string[] = [];
+
+    if (startDate && endDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+
+    if (regionId !== null && regionId !== undefined)
+      params.push(`regionId=${regionId}`);
+
+    if (branchId !== null && branchId !== undefined)
+      params.push(`branchId=${branchId}`);
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+  } catch (err) {
+    console.error("Error fetching repeat complaints:", err);
+    return [];
+  }
+};
+
+export const getComplaintAgingReport = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    const res = await api.get("/khadimDashboard/GetComplaintAgingReport", {
+      params: {
+        startDate,
+        endDate,
+        regionId,
+        branchId
+      }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching complaint aging report:", error);
+    throw error;
+  }
+};
+
+
+export const getTechnicianPerformance = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    const res = await api.get("/khadimDashboard/GetTechnicianPerformance", {
+      params: {
+        startDate,
+        endDate,
+        regionId,
+        branchId
+      }
+    });
+    return res.data;  // API returns array
+  } catch (error) {
+    console.error("Error fetching technician performance:", error);
+    throw error;
+  }
+};
+
+
+// 🟦  Khadim Dashboard – Category Wise Summary
+
+
+//Customer Sentiment Dashboard APIs can be added here similarly
+
+export const getCustomerJourney = async (
+  customerId?: number | null,
+  startDate?: string,
+  endDate?: string,
+  regionId?: string | null,
+  branchId?: string | null
+) => {
+  try {
+    const res = await api.get("/customer/GetCustomerJourney", {
+      params: {
+        customerId,
+        startDate,
+        endDate,
+        regionId,
+        branchId,
+      },
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching customer journey:", error);
+    throw error;
+  }
+};
+
+
+export const getReorderKPI = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    const res = await api.get("/customer/GetReorderKPI", {
+      params: { startDate, endDate, regionId, branchId }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching reorder KPIs:", error);
+    throw error;
+  }
+};
+
+
+export const getCustomerTrend = async (
+  rangeType: "day" | "week" | "month" = "day",
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/customer/GetCustomerTrend?granularity=${rangeType}`;
+    const params: string[] = [];
+
+    // Date filter only when both start & end exist
+    if (startDate && endDate) {
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+    }
+
+    // Region filter
+    if (regionId !== null && regionId !== undefined)
+      params.push(`regionId=${regionId}`);
+
+    // Branch filter
+    if (branchId !== null && branchId !== undefined)
+      params.push(`branchId=${branchId}`);
+
+    // Attach params
+    if (params.length) url += `&${params.join("&")}`;
+
+    const res = await api.get(url);
+    return res;
+  } catch (error) {
+    console.error("Error fetching customer trend:", error);
+    throw error;
+  }
+};
+
+
+export const getCustomerSegmentation = async (
+  regionId?: number | null,
+  branchId?: number | null,
+  endDate?: string
+) => {
+  try {
+    let url = `/customer/GetCustomerSegmentation?`;
+    const params: string[] = [];
+
+    if (regionId !== null && regionId !== undefined)
+      params.push(`regionId=${regionId}`);
+
+    if (branchId !== null && branchId !== undefined)
+      params.push(`branchId=${branchId}`);
+
+    if (endDate)
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching segmentation:", error);
+    throw error;
+  }
+};
+
+
+export const getReorderTimeDistribution = async (
+  regionId?: number | string | null,
+  branchId?: number | string | null,
+  startDate?: string | null,
+  endDate?: string | null,
+  viewMode: string = "Last90"
+) => {
+  try {
+    let url = `/Customer/GetReorderTimeDistribution?`;
+    const params: string[] = [];
+
+    // Convert numbers to string
+    const r = regionId != null ? regionId.toString() : null;
+    const b = branchId != null ? branchId.toString() : null;
+
+    if (r) params.push(`regionId=${encodeURIComponent(r)}`);
+    if (b) params.push(`branchId=${encodeURIComponent(b)}`);
+
+    if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+    if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+    if (viewMode) params.push(`viewMode=${encodeURIComponent(viewMode)}`);
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching reorder distribution:", error);
+    throw error;
+  }
+};
+
+
+
+
+
+export const getReorderFrequency = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: string | null,
+  branchId?: string | null
+) => {
+  try {
+    const res = await api.get("/customer/GetReorderFrequency", {
+      params: { startDate, endDate, regionId, branchId }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+};
+
+
+export const getReorderBuckets = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: string | null,
+  branchId?: string | null
+) => {
+  try {
+    const res = await api.get("/customer/GetReorderBuckets", {
+      params: { startDate, endDate, regionId, branchId }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+};
+
+
+export const getBranchWiseReorder = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: string | null,
+  branchId?: string | null
+) => {
+  try {
+    const res = await api.get("/customer/GetBranchWiseReorder", {
+      params: { startDate, endDate, regionId, branchId }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+};
+
+
+export const getHighValueRiskCustomers = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: string | null,
+  branchId?: string | null
+) => {
+  try {
+    const res = await api.get("/customer/GetHighValueRisk", {
+      params: { startDate, endDate, regionId, branchId }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error fetching risk customers:", error);
+    throw error;
+  }
+};
+
+
+export const getReorderRaw = async (
+  startDate?: string,
+  endDate?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    const res = await api.get("/customer/GetReorderRaw", {
+      params: { startDate, endDate, regionId, branchId }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+};
+
+
+
+//Customer Sentiment Dashboard APIs can be added here similarly
+
+
+//Rider Dashboard APIs can be added here similarly
+
+// ---------------- RIDER DASHBOARD API ----------------
+
+export const getRiderPerformanceSummary = async (
+  startDate?: string | null,
+  endDate?: string | null,
+  regionId?: number | null,
+  branchId?: number | null,
+  riderId?: number | null
+) => {
+  try {
+    let url = `/Rider/GetRiderPerformanceSummary?`;
+    const params: string[] = [];
+
+    if (startDate)
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+
+    if (endDate)
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+    if (regionId !== null && regionId !== undefined)
+      params.push(`regionId=${regionId}`);
+
+    if (branchId !== null && branchId !== undefined)
+      params.push(`branchId=${branchId}`);
+
+    if (riderId !== null && riderId !== undefined)
+      params.push(`riderId=${riderId}`);
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+
+  } catch (error) {
+    console.error("Error fetching Rider Performance Summary:", error);
+    throw error;
+  }
+};
+
+
+
+
+//Rider Dashboard APIs can be added here similarly
+
+
+//Food Analytics Dashboard APIs can be added here similarly
+// ⭐ Get Menu KPIs (Single Row from PROC_MenuItem_KPIs)
+export const getMenuKPIs = async (
+  startDate?: string | null,
+  endDate?: string | null,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/FoodAnalytics/GetMenuKPIs?`;
+    const params: string[] = [];
+
+    if (startDate)
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+
+    if (endDate)
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+    if (regionId !== null && regionId !== undefined)
+      params.push(`regionId=${regionId}`);
+
+    if (branchId !== null && branchId !== undefined )
+      params.push(`branchId=${branchId}`);
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+
+  } catch (error) {
+    console.error("Error fetching Menu KPIs:", error);
+    throw error;
+  }
+};
+
+
+export const getMenuItemComplaintKPIs = async (
+  startDate?: string | null,
+  endDate?: string | null,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+
+  let url = `/FoodAnalytics/GetMenuItemComplaintKPIs?`;
+  const params: string[] = [];
+
+  if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+  if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+  if (regionId) params.push(`regionId=${regionId}`);
+  if (branchId) params.push(`branchId=${branchId}`);
+
+  if (params.length) url += params.join("&");
+
+  const res = await api.get(url);
+  return res.data;
+};
+
+
+export const getComplaintKeywords = async (
+  startDate?: string | null,
+  endDate?: string | null,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/FoodAnalytics/GetComplaintKeywords?`;
+    const params: string[] = [];
+
+    if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+    if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+    if (regionId !== null && regionId !== undefined) params.push(`regionId=${regionId}`);
+    if (branchId !== null && branchId !== undefined) params.push(`branchId=${branchId}`);
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+
+  } catch (error) {
+    console.error("Error loading Complaint Keywords", error);
+    throw error;
+  }
+};
+
+
+export const getComplaintKeywordDetails = async (
+  startDate?: string | null,
+  endDate?: string | null,
+  regionId?: number | null,
+  branchId?: number | null,
+  keyword?: string | null
+) => {
+
+  let url = `/FoodAnalytics/GetComplaintKeywordDetails?`;
+  const params: string[] = [];
+
+  if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+  if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+  if (regionId) params.push(`regionId=${regionId}`);
+  if (branchId) params.push(`branchId=${branchId}`);
+  if (keyword) params.push(`keyword=${encodeURIComponent(keyword)}`);
+
+  if (params.length) url += params.join("&");
+
+  const res = await api.get(url);
+  return res.data;
+};
+
+
+//Food Analytics Dashboard APIs can be added here similarly
+
+//----------------------------Branch Performance Dashboard APIs----------------------------
+
+export const getBranchPerformance = async (
+  startDate?: string | null,
+  endDate?: string | null,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/Branch/GetBranchPerformance?`;
+    const params: string[] = [];
+
+    if (startDate)
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+
+    if (endDate)
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+    if (regionId !== null && regionId !== undefined)
+      params.push(`regionIds=${regionId}`);
+
+    if (branchId !== null && branchId !== undefined)
+      params.push(`branchIds=${branchId}`);
+
+
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+
+  } catch (error) {
+    console.error("Error fetching Rider Performance Summary:", error);
+    throw error;
+  }
+};
+
+
+
+export const getBranchPerformancePickup = async (
+  startDate?: string | null,
+  endDate?: string | null,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    let url = `/Branch/GetBranchPerformancePickup?`;
+    const params: string[] = [];
+
+    if (startDate)
+      params.push(`startDate=${encodeURIComponent(startDate)}`);
+
+    if (endDate)
+      params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+    if (regionId !== null && regionId !== undefined)
+      params.push(`regionIds=${regionId}`);
+
+    if (branchId !== null && branchId !== undefined)
+      params.push(`branchIds=${branchId}`);
+
+
+
+    if (params.length) url += params.join("&");
+
+    const res = await api.get(url);
+    return res.data;
+
+  } catch (error) {
+    console.error("Error fetching Rider Performance Summary:", error);
+    throw error;
+  }
+};
+
+
+export const getPaymentModeOrders = async (
+  startDate: string,
+  endDate: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+
+  let url = `/Branch/GetPaymentModeOrders?`;
+  const params: string[] = [];
+
+  if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+  if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+  if (regionId !== null && regionId !== undefined)
+    params.push(`regionId=${regionId}`);
+
+  if (branchId !== null && branchId !== undefined)
+    params.push(`branchId=${branchId}`);
+
+  if (params.length) url += params.join("&");
+
+  const res = await api.get(url);
+  return res.data;
+};
+
+
+export const getPaymentModeOrdersPickup = async (
+  startDate: string,
+  endDate: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+
+  let url = `/Branch/GetPaymentModeOrdersPickup?`;
+  const params: string[] = [];
+
+  if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+  if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+  if (regionId !== null && regionId !== undefined)
+    params.push(`regionId=${regionId}`);
+
+  if (branchId !== null && branchId !== undefined)
+    params.push(`branchId=${branchId}`);
+
+  if (params.length) url += params.join("&");
+
+  const res = await api.get(url);
+  return res.data;
+};
+
+
+export const GetCancelRejectOrders = async (
+  startDate: string,
+  endDate: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+
+  let url = `/Branch/GetCancelRejectOrders?`;
+  const params: string[] = [];
+
+  if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+  if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+  if (regionId !== null && regionId !== undefined)
+    params.push(`regionId=${regionId}`);
+
+  if (branchId !== null && branchId !== undefined)
+    params.push(`branchId=${branchId}`);
+
+  if (params.length) url += params.join("&");
+
+  const res = await api.get(url);
+  return res.data;
+};
+
+
+
+export const GetCancelRejectOrdersReasonWise = async (
+  startDate: string,
+  endDate: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+
+  let url = `/Branch/GetOrderReasonWise?`;
+  const params: string[] = [];
+
+  if (startDate) params.push(`startDate=${encodeURIComponent(startDate)}`);
+  if (endDate) params.push(`endDate=${encodeURIComponent(endDate)}`);
+
+  if (regionId !== null && regionId !== undefined)
+    params.push(`regionId=${regionId}`);
+
+  if (branchId !== null && branchId !== undefined)
+    params.push(`branchId=${branchId}`);
+
+  if (params.length) url += params.join("&");
+
+  const res = await api.get(url);
+  return res.data;
+};
+
+
+// Branch Performance Summary
+
+
+
+//Branches Access Roles WIse
+
+
+
+export interface BranchAccess {
+  branchId: number;
+  branchName: string;
+  regionId: number;
+  regionName?: string;
+  isSelected: boolean;
+}
+
+export const getBranchAccess = async (
+  roleId: number,
+  userId?: number | null
+) => {
+  let url = `/Dashboard/GetBranchAccess?roleId=${roleId}`;
+  if (userId) url += `&userId=${userId}`;
+
+  const res = await api.get<BranchAccess[]>(url);
+  return res.data;
+};
+
+export const saveBranchAccess = async (payload: any[]) => {
+  const res = await api.post(`/Dashboard/SaveBranchAccessBulk`, payload);
+  return res.data;
+};
+
+
+const buildQuery = (params: Record<string, any>) => {
+  return Object.entries(params)
+    .filter(([_, v]) => v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join("&");
+};
+
+export const GetStoreComparison = async (
+  currentFrom: string,
+  currentTo: string,
+  lastFrom: string,
+  lastTo: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  try {
+    // 🛑 Basic validation (important)
+    if (!currentFrom || !currentTo)
+      throw new Error("Current date range is required");
+
+    const query = buildQuery({
+      currentFrom,
+      currentTo,
+      lastFrom,
+      lastTo,
+      regionId,
+      branchId
+    });
+
+    const url = `/Branch/GetStoreComparison?${query}`;
+
+    const res = await api.get(url);
+
+    // 🔒 Safe return
+    return res?.data || [];
+  } catch (error: any) {
+    console.error("GetStoreComparison API Error:", error);
+    throw error?.response?.data || error;
+  }
+};
+
+
+export const exportStoreComparisonReport = async (
+  currentFrom?: string,
+  currentTo?: string,
+  lastFrom?: string,
+  lastTo?: string,
+  regionId?: number | null,
+  branchId?: number | null
+) => {
+  const params = new URLSearchParams();
+
+  if (currentFrom) params.append("currentFrom", currentFrom);
+  if (currentTo) params.append("currentTo", currentTo);
+  if (lastFrom) params.append("lastFrom", lastFrom);
+  if (lastTo) params.append("lastTo", lastTo);
+
+  if (regionId) params.append("regionId", regionId.toString());
+  if (branchId) params.append("branchId", branchId.toString());
+
+  const response = await api.get(
+    `/Branch/ExportStoreComparison?${params.toString()}`,
+    {
+      responseType: "blob",
+    }
+  );
+
+  // 🔽 Download Excel
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute(
+    "download",
+    `StoreComparison_${new Date().toISOString().slice(0, 10)}.xlsx`
+  );
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+
+
+/* ----------------------------
+   Inventory & Maintenance
+----------------------------- */
+
+export const getInventoryCategories = (params?: { includeInactive?: boolean }) =>
+  api.get("/Inventory/categories", {
+    params: { includeInactive: params?.includeInactive ?? false },
+  });
+
+export const getInventoryCategoryById = (id: number) =>
+  api.get(`/Inventory/categories/${id}`);
+
+export const saveInventoryCategory = (data: {
+  InventoryCategoryId: number;
+  CategoryCode: string;
+  CategoryName: string;
+  Description?: string | null;
+  IsActive: boolean;
+}) => api.post("/Inventory/categories/save", data);
+
+export const getInventoryItemsMaster = (params?: {
+  inventoryCategoryId?: number | null;
+  includeInactive?: boolean;
+}) =>
+  api.get("/Inventory/items", {
+    params: {
+      inventoryCategoryId: params?.inventoryCategoryId ?? undefined,
+      includeInactive: params?.includeInactive ?? false,
+    },
+  });
+
+export const getInventoryItemMasterById = (id: number) =>
+  api.get(`/Inventory/items/${id}`);
+
+export const saveInventoryItemMaster = (data: Record<string, unknown>) =>
+  api.post("/Inventory/items/save", data);
+
+export const getInventoryAssets = (params?: {
+  branchId?: number | null;
+  itemId?: number | null;
+  status?: string | null;
+  condition?: string | null;
+  categoryName?: string | null;
+  search?: string | null;
+}) =>
+  api.get("/Inventory/inventory-items", {
+    params: {
+      branchId: params?.branchId ?? undefined,
+      itemId: params?.itemId ?? undefined,
+      status: params?.status || undefined,
+      condition: params?.condition || undefined,
+      categoryName: params?.categoryName || undefined,
+      search: params?.search || undefined,
+    },
+  });
+
+export const getInventoryAssetById = (id: number) =>
+  api.get(`/Inventory/inventory-items/${id}`);
+
+export const saveInventoryAsset = (data: Record<string, unknown>) =>
+  api.post("/Inventory/inventory-items/save", data);
+
+export const transferInventoryAsset = (
+  id: number,
+  data: { ToBranchId: number; Remarks?: string | null }
+) => api.post(`/Inventory/inventory-items/${id}/transfer`, data);
+
+export const getInventoryAssetHistory = (id: number) =>
+  api.get(`/Inventory/inventory-items/${id}/history`);
+
+export const createMaintenanceComplaint = (data: FormData) =>
+  api.post("/Inventory/maintenance/complaints", data, {
+    transformRequest: [
+      (body, headers) => {
+        if (headers && typeof headers === "object") {
+          delete (headers as Record<string, unknown>)["Content-Type"];
+        }
+        return body;
+      },
+    ],
+  });
+
+export const getMaintenanceList = (params?: {
+  branchId?: number | null;
+  status?: string | null;
+  priority?: string | null;
+  assignedTo?: number | null;
+  search?: string | null;
+  categoryId?: number | null;
+  pageNumber?: number | null;
+  pageSize?: number | null;
+  sortBy?: string | null;
+  sortDirection?: string | null;
+}) =>
+  api.get("/Inventory/maintenance", {
+    params: {
+      branchId: params?.branchId ?? undefined,
+      status: params?.status || undefined,
+      priority: params?.priority || undefined,
+      assignedTo: params?.assignedTo ?? undefined,
+      search: params?.search || undefined,
+      categoryId: params?.categoryId ?? undefined,
+      pageNumber: params?.pageNumber ?? undefined,
+      pageSize: params?.pageSize ?? undefined,
+      sortBy: params?.sortBy || undefined,
+      sortDirection: params?.sortDirection || undefined,
+    },
+  });
+
+export const getMaintenanceById = (id: number) =>
+  api.get(`/Inventory/maintenance/${id}`);
+
+export const approveMaintenance = (id: number, data?: { Comments?: string | null }) =>
+  api.post(`/Inventory/maintenance/${id}/approve`, data ?? {});
+
+export const assignMaintenance = (
+  id: number,
+  data: { AssignedTo: number; Comments?: string | null; JobTimeHours: number }
+) => api.post(`/Inventory/maintenance/${id}/assign`, data);
+
+export const updateMaintenanceTechnicianStatus = (
+  id: number,
+  data: {
+    ActionType: string;
+    Notes: string;
+    JobTimeHours?: number | null;
+    RequiredSparePart?: string | null;
+    SparePartItemId?: number | null;
+    Quantity?: number | null;
+  }
+) => api.post(`/Inventory/maintenance/${id}/technician-update`, data);
+
+export const startMaintenance = (id: number, data: FormData) =>
+  api.post(`/Inventory/maintenance/${id}/start`, data, {
+    transformRequest: [
+      (body, headers) => {
+        if (headers && typeof headers === "object") {
+          delete (headers as Record<string, unknown>)["Content-Type"];
+        }
+        return body;
+      },
+    ],
+  });
+
+export const completeMaintenanceRepair = (id: number, data: FormData) =>
+  api.post(`/Inventory/maintenance/${id}/complete-repair`, data, {
+    transformRequest: [
+      (body, headers) => {
+        if (headers && typeof headers === "object") {
+          delete (headers as Record<string, unknown>)["Content-Type"];
+        }
+        return body;
+      },
+    ],
+  });
+
+export const closeMaintenance = (id: number, data?: { Comments?: string | null }) =>
+  api.post(`/Inventory/maintenance/${id}/close`, data ?? {});
+
+export const getMaintenanceHistory = (id: number) =>
+  api.get(`/Inventory/maintenance/${id}/history`);
+
+export const getMaintenanceHistoryByInventoryItem = (inventoryItemId: number) =>
+  api.get(`/Inventory/maintenance/inventory-item/${inventoryItemId}/history`);
+
+export const getInventoryComplaintAnalytics = () =>
+  api.get("/Inventory/complaint-analytics");
+
+export const getInventoryComplaintAnalyticsDetails = (status?: string | null) =>
+  api.get("/Inventory/complaint-analytics/details", {
+    params: {
+      status: status || undefined,
+    },
+  });
+
+export const getBranchInventoryAnalytics = () =>
+  api.get("/Inventory/branch-inventory-analytics");
+
+export const getBranchInventoryAnalyticsItems = (status?: string | null) =>
+  api.get("/Inventory/branch-inventory-analytics/items", {
+    params: {
+      status: status || undefined,
+    },
+  });
 
 export default api;

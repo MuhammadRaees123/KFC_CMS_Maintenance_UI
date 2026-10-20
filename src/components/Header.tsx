@@ -12,10 +12,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useNavigate } from "react-router-dom";
 
-export const Header = () => {
+type HeaderProps = {
+  onMenuClick: () => void;
+};
+
+export const Header = ({ onMenuClick }: HeaderProps) => {
   const [userName, setUserName] = useState<string>("Admin User");
   const [userEmail, setUserEmail] = useState<string>("admin@kfc.com");
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     try {
@@ -58,13 +65,17 @@ export const Header = () => {
   });
 
   setTimeout(() => {
-      window.location.href = "/login";
+     // window.location.href = "/login";
+       navigate("/login", { replace: true });
     }, 1000);
 };
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-card px-6 shadow-sm">
-      <Button variant="ghost" size="icon" className="md:hidden">
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-card px-6 shadow-sm">
+      <Button variant="ghost" size="icon" className="md:hidden" onClick={() => {
+    //console.log("🍔 HEADER BURGER CLICKED");
+    onMenuClick?.(); // ✅ SAFE
+  }}>
         <Menu className="h-5 w-5" />
       </Button>
 
