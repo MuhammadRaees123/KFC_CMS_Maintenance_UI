@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Eye, Loader2, RefreshCcw } from "lucide-react";
 import {
+  acceptMaintenanceComplaint,
   completeMaintenanceRepair,
+  getAvailableMaintenanceComplaints,
   getBranchesForDashboard,
   getMaintenanceById,
   getMaintenanceHistory,
@@ -24,7 +26,6 @@ import {
   formatJobTime,
   isTechnicianWorkStatus,
   JOB_TIME_OPTIONS,
-  MAINTENANCE_STATUSES,
   parseJobTimeHours,
   pickField,
   PRIORITIES,
@@ -33,6 +34,7 @@ import {
 const PAGE_SIZE = 10;
 
 type ActionKind = "start" | "complete" | "technician" | null;
+type ListMode = "assigned" | "available";
 type TechnicianActionType =
   | "Pending"
   | "WorkLoad"
@@ -42,11 +44,14 @@ type MaintenanceRow = Record<string, unknown>;
 
 const BranchAgentTasks: React.FC = () => {
   const [rows, setRows] = useState<MaintenanceRow[]>([]);
+  const [availableRows, setAvailableRows] = useState<MaintenanceRow[]>([]);
+  const [listMode, setListMode] = useState<ListMode>("assigned");
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [userNameMap, setUserNameMap] = useState<Map<number, string>>(
     () => new Map(),
   );
   const [loading, setLoading] = useState(false);
+  const [acceptingId, setAcceptingId] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   const [branchId, setBranchId] = useState("");
@@ -136,9 +141,7 @@ const BranchAgentTasks: React.FC = () => {
     return userNameMap.get(numericId) || String(numericId);
   };
 
-  const fetchList = async () => {
-    setPageNumber(1);
-
+  const fetchAssignedList = async () => {
     if (!currentUserId) {
       toast({
         title: "Error",
@@ -179,9 +182,169 @@ const BranchAgentTasks: React.FC = () => {
     }
   };
 
+  const fetchAvailableList = async () => {
+    if (!currentUserId) {
+      toast({
+        title: "Error",
+        description: "Unable to determine the logged-in user.",
+        variant: "destructive",
+      });
+      setAvailableRows([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await getAvailableMaintenanceComplaints();
+      let data = Array.isArray(res.data)
+        ? (res.data as MaintenanceRow[])
+        : [];
+
+      if (branchId) {
+        const branchFilter = Number(branchId);
+        data = data.filter(
+          (row) =>
+            Number(pickField(row, "branchId", "BranchId")) === branchFilter,
+        );
+      }
+      if (priority) {
+        data = data.filter(
+          (row) =>
+            String(pickField(row, "priority", "Priority") || "") === priority,
+        );
+      }
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        data = data.filter((row) => {
+          const hay = [
+            pickField(row, "title", "Title"),
+            pickField(row, "itemName", "ItemName"),
+            pickField(row, "itemCode", "ItemCode"),
+            pickField(row, "serialNumber", "SerialNumber"),
+            pickField(row, "description", "Description"),
+            pickField(row, "categoryName", "CategoryName"),
+            pickField(row, "tradeName", "TradeName"),
+          ]
+            .map((v) => String(v ?? "").toLowerCase())
+            .join(" ");
+          return hay.includes(q);
+        });
+      }
+
+      setAvailableRows(data);
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: apiErrorMessage(
+          error,
+          "Failed to load available complaints.",
+        ),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchList = async () => {
+    setPageNumber(1);
+    if (listMode === "available") {
+      await fetchAvailableList();
+    } else {
+      await fetchAssignedList();
+    }
+  };
+
+  const refreshBothLists = async () => {
+    setPageNumber(1);
+    if (!currentUserId) return;
+
+    setLoading(true);
+    try {
+      const [assignedRes, availableRes] = await Promise.all([
+        getMaintenanceList({
+          branchId: branchId ? Number(branchId) : null,
+          status: status || null,
+          priority: priority || null,
+          assignedTo: currentUserId,
+          search: search || null,
+        }),
+        getAvailableMaintenanceComplaints(),
+      ]);
+
+      const assignedData = Array.isArray(assignedRes.data)
+        ? (assignedRes.data as MaintenanceRow[])
+        : [];
+      setRows(
+        assignedData.filter(
+          (row) =>
+            Number(pickField(row, "assignedTo", "AssignedTo")) ===
+            currentUserId,
+        ),
+      );
+
+      let availableData = Array.isArray(availableRes.data)
+        ? (availableRes.data as MaintenanceRow[])
+        : [];
+      if (branchId) {
+        const branchFilter = Number(branchId);
+        availableData = availableData.filter(
+          (row) =>
+            Number(pickField(row, "branchId", "BranchId")) === branchFilter,
+        );
+      }
+      if (priority) {
+        availableData = availableData.filter(
+          (row) =>
+            String(pickField(row, "priority", "Priority") || "") === priority,
+        );
+      }
+      setAvailableRows(availableData);
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: apiErrorMessage(error, "Failed to refresh complaint lists."),
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const acceptComplaint = async (row: MaintenanceRow) => {
+    const requestId = Number(
+      pickField(row, "maintenanceRequestId", "MaintenanceRequestId"),
+    );
+    if (!requestId || acceptingId) return;
+
+    setAcceptingId(requestId);
+    try {
+      await acceptMaintenanceComplaint(requestId, { JobTimeHours: 2 });
+      toast({
+        title: "Success",
+        description: "Complaint accepted successfully.",
+      });
+      await refreshBothLists();
+      setListMode("assigned");
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: apiErrorMessage(
+          error,
+          "Failed to accept complaint.",
+        ),
+        variant: "destructive",
+      });
+      await fetchAvailableList();
+    } finally {
+      setAcceptingId(null);
+    }
+  };
+
   useEffect(() => {
     loadBranches();
-    fetchList();
+    fetchAssignedList();
+    fetchAvailableList();
     loadUsers();
     // Mount-only load, matching Maintenance.tsx
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -189,7 +352,7 @@ const BranchAgentTasks: React.FC = () => {
 
   useEffect(() => {
     setPageNumber(1);
-  }, [rows]);
+  }, [rows, availableRows, listMode]);
 
   useEffect(() => {
     const timerId = window.setInterval(() => setNow(Date.now()), 1000);
@@ -212,10 +375,28 @@ const BranchAgentTasks: React.FC = () => {
     [rows],
   );
 
-  const totalRecords = sortedRows.length;
+  const sortedAvailableRows = useMemo(
+    () =>
+      [...availableRows].sort((a, b) => {
+        const dateA = new Date(
+          String(pickField(a, "reportedDate", "ReportedDate") || ""),
+        ).getTime();
+        const dateB = new Date(
+          String(pickField(b, "reportedDate", "ReportedDate") || ""),
+        ).getTime();
+        const safeA = Number.isFinite(dateA) ? dateA : 0;
+        const safeB = Number.isFinite(dateB) ? dateB : 0;
+        return safeB - safeA;
+      }),
+    [availableRows],
+  );
+
+  const activeRows =
+    listMode === "available" ? sortedAvailableRows : sortedRows;
+  const totalRecords = activeRows.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE));
   const currentPage = Math.min(pageNumber, totalPages);
-  const pagedRows = sortedRows.slice(
+  const pagedRows = activeRows.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE,
   );
@@ -473,6 +654,30 @@ const BranchAgentTasks: React.FC = () => {
         </button>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={listMode === "assigned" ? "kfc-btn" : "kfc-btn-outline"}
+          onClick={() => {
+            setListMode("assigned");
+            setPageNumber(1);
+          }}
+        >
+          My Assigned ({rows.length})
+        </button>
+        <button
+          type="button"
+          className={listMode === "available" ? "kfc-btn" : "kfc-btn-outline"}
+          onClick={() => {
+            setListMode("available");
+            setPageNumber(1);
+            void fetchAvailableList();
+          }}
+        >
+          Available Complaints ({availableRows.length})
+        </button>
+      </div>
+
       <div className="kfc-card">
         <div className="kfc-card-header">Filters</div>
         <div className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
@@ -491,21 +696,23 @@ const BranchAgentTasks: React.FC = () => {
               ))}
             </select>
           </div>
-          <div>
-            <label className="kfc-label">Status</label>
-            <select
-              className="kfc-input"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              {statusFilterOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
+          {listMode === "assigned" && (
+            <div>
+              <label className="kfc-label">Status</label>
+              <select
+                className="kfc-input"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="">All</option>
+                {statusFilterOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="kfc-label">Priority</label>
             <select
@@ -543,12 +750,141 @@ const BranchAgentTasks: React.FC = () => {
       </div>
 
       <div className="kfc-card">
-        <div className="kfc-card-header">My Assigned Requests</div>
+        <div className="kfc-card-header">
+          {listMode === "available"
+            ? "Available Complaints"
+            : "My Assigned Requests"}
+        </div>
         <div className="p-3 overflow-x-auto">
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="animate-spin text-red-600 w-8 h-8" />
             </div>
+          ) : listMode === "available" ? (
+            <table className="min-w-full border text-sm">
+              <thead className="bg-[#fff6f6] text-[#bc3342]">
+                <tr>
+                  <th className="border px-3 py-2 text-left">Request #</th>
+                  <th className="border px-3 py-2 text-left">Title</th>
+                  <th className="border px-3 py-2 text-left">Item</th>
+                  <th className="border px-3 py-2 text-left">Category / Trade</th>
+                  <th className="border px-3 py-2 text-left">Branch</th>
+                  <th className="border px-3 py-2 text-left">Priority</th>
+                  <th className="border px-3 py-2 text-left">Status</th>
+                  <th className="border px-3 py-2 text-left">Reported</th>
+                  <th className="border px-3 py-2 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedRows.length > 0 ? (
+                  pagedRows.map((row) => {
+                    const requestId = Number(
+                      pickField(
+                        row,
+                        "maintenanceRequestId",
+                        "MaintenanceRequestId",
+                      ),
+                    );
+                    const rowStatus = pickField<string>(
+                      row,
+                      "status",
+                      "Status",
+                    );
+                    const categoryName =
+                      pickField(row, "categoryName", "CategoryName") || "-";
+                    const tradeName =
+                      pickField(row, "tradeName", "TradeName") || "";
+                    return (
+                      <tr key={requestId} className="hover:bg-gray-50">
+                        <td className="border px-3 py-1.5">{requestId}</td>
+                        <td className="border px-3 py-1.5 font-medium">
+                          <div>{pickField(row, "title", "Title") || "-"}</div>
+                          {pickField(row, "description", "Description") ? (
+                            <div className="text-xs text-gray-500 line-clamp-2">
+                              {String(
+                                pickField(row, "description", "Description"),
+                              )}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          <div>
+                            {pickField(row, "itemName", "ItemName") || "-"}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {pickField(row, "itemCode", "ItemCode")}
+                          </div>
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          {tradeName
+                            ? `${categoryName} / ${tradeName}`
+                            : categoryName}
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          {branchName(
+                            pickField<number>(row, "branchId", "BranchId"),
+                          )}
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          <StatusBadge
+                            value={pickField<string>(
+                              row,
+                              "priority",
+                              "Priority",
+                            )}
+                            kind="priority"
+                          />
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          <StatusBadge value={rowStatus} />
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          {formatDateTime(
+                            pickField(row, "reportedDate", "ReportedDate"),
+                          )}
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          <div className="flex flex-wrap gap-1.5 justify-center">
+                            <button
+                              type="button"
+                              title="View"
+                              className="kfc-btn-outline p-1.5 rounded-md"
+                              onClick={() => openView(row)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="kfc-btn"
+                              disabled={acceptingId === requestId}
+                              onClick={() => acceptComplaint(row)}
+                            >
+                              {acceptingId === requestId ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Accepting...
+                                </span>
+                              ) : (
+                                "Accept Complaint"
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="border px-3 py-4 text-center text-gray-500"
+                    >
+                      No available complaints for your trades.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           ) : (
             <table className="min-w-full border text-sm">
               <thead className="bg-[#fff6f6] text-[#bc3342]">
@@ -562,7 +898,6 @@ const BranchAgentTasks: React.FC = () => {
                   <th className="border px-3 py-2 text-left">Job Time</th>
                   <th className="border px-3 py-2 text-left">Priority</th>
                   <th className="border px-3 py-2 text-left">Status</th>
-                  {/* <th className="border px-3 py-2 text-left">Reported</th> */}
                   <th className="border px-3 py-2 text-left">Assigned Date</th>
                   <th className="border px-3 py-2 text-center">Actions</th>
                 </tr>
@@ -640,11 +975,6 @@ const BranchAgentTasks: React.FC = () => {
                         <td className="border px-3 py-1.5">
                           <StatusBadge value={rowStatus} />
                         </td>
-                        {/* <td className="border px-3 py-1.5">
-                          {formatDateTime(
-                            pickField(row, "reportedDate", "ReportedDate"),
-                          )}
-                        </td> */}
                         <td className="border px-3 py-1.5">
                           {formatDateTime(
                             pickField(row, "assignedDate", "AssignedDate"),
@@ -704,7 +1034,7 @@ const BranchAgentTasks: React.FC = () => {
                 ) : (
                   <tr>
                     <td
-                      colSpan={12}
+                      colSpan={11}
                       className="border px-3 py-4 text-center text-gray-500"
                     >
                       No assigned maintenance tasks found.

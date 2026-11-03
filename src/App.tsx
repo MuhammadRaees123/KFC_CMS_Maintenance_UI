@@ -45,6 +45,9 @@ import InventoryTechnicianDashboard from "./pages/Inventory/TechnicianDashboard"
 import InventoryComplaint from "./pages/Inventory/InventoryComplaint";
 import InventoryComplaintAnalytics from "./pages/Inventory/ComplaintAnalytics";
 import InventoryBranchInventoryAnalytics from "./pages/Inventory/BranchInventoryAnalytics";
+import InventoryTrade from "./pages/Inventory/Trade";
+import InventoryTechnicianTrade from "./pages/Inventory/TechnicianTrade";
+import InventoryCategoryTrade from "./pages/Inventory/CategoryTrade";
 
 const queryClient = new QueryClient();
 
@@ -216,6 +219,9 @@ const App = () => {
               <Route path="/inventory/maintenance/:id" element={<InventoryMaintenanceDetail />} />
               <Route path="/inventory/branch-agent-tasks" element={<InventoryBranchAgentTasks />} />
               <Route path="/inventory/technician-dashboard" element={<InventoryTechnicianDashboard />} />
+              <Route path="/inventory/trade" element={<InventoryTrade />} />
+              <Route path="/inventory/technician-trade" element={<InventoryTechnicianTrade />} />
+              <Route path="/inventory/category-trade" element={<InventoryCategoryTrade />} />
             </Route>
 
             {/* 🚫 Catch-All */}

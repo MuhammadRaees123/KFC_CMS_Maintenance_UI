@@ -1813,6 +1813,60 @@ export const saveInventoryCategory = (data: {
   IsActive: boolean;
 }) => api.post("/Inventory/categories/save", data);
 
+/* ----------------------------
+   Trade Management
+----------------------------- */
+
+export const getTrades = () => api.get("/Trade");
+
+export const getTradeById = (id: number) => api.get(`/Trade/${id}`);
+
+export const createTrade = (data: { TradeName: string; TradeCode: string }) =>
+  api.post("/Trade", data);
+
+export const updateTrade = (
+  id: number,
+  data: { TradeName: string; TradeCode: string }
+) => api.put(`/Trade/${id}`, data);
+
+export const deleteTrade = (id: number) => api.delete(`/Trade/${id}`);
+
+export const getTechnicianTrades = () => api.get("/TechnicianTrade");
+
+export const getTechnicianTradeById = (id: number) =>
+  api.get(`/TechnicianTrade/${id}`);
+
+export const createTechnicianTrade = (data: {
+  UserId: number;
+  TradeId: number;
+}) => api.post("/TechnicianTrade", data);
+
+export const updateTechnicianTrade = (
+  id: number,
+  data: { UserId: number; TradeId: number }
+) => api.put(`/TechnicianTrade/${id}`, data);
+
+export const deleteTechnicianTrade = (id: number) =>
+  api.delete(`/TechnicianTrade/${id}`);
+
+export const getCategoryTrades = () => api.get("/CategoryTrade");
+
+export const getCategoryTradeById = (id: number) =>
+  api.get(`/CategoryTrade/${id}`);
+
+export const createCategoryTrade = (data: {
+  InventoryCategoryId: number;
+  TradeId: number;
+}) => api.post("/CategoryTrade", data);
+
+export const updateCategoryTrade = (
+  id: number,
+  data: { InventoryCategoryId: number; TradeId: number }
+) => api.put(`/CategoryTrade/${id}`, data);
+
+export const deleteCategoryTrade = (id: number) =>
+  api.delete(`/CategoryTrade/${id}`);
+
 export const getInventoryItemsMaster = (params?: {
   inventoryCategoryId?: number | null;
   includeInactive?: boolean;
@@ -1904,6 +1958,14 @@ export const getMaintenanceList = (params?: {
 
 export const getMaintenanceById = (id: number) =>
   api.get(`/Inventory/maintenance/${id}`);
+
+export const getAvailableMaintenanceComplaints = () =>
+  api.get("/Inventory/maintenance/available");
+
+export const acceptMaintenanceComplaint = (
+  id: number,
+  data?: { JobTimeHours?: number | null }
+) => api.post(`/Inventory/maintenance/${id}/accept`, data ?? {});
 
 export const approveMaintenance = (id: number, data?: { Comments?: string | null }) =>
   api.post(`/Inventory/maintenance/${id}/approve`, data ?? {});
