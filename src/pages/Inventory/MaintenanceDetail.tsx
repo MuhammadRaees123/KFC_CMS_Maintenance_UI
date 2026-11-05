@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { approveMaintenance, assignMaintenance, closeMaintenance,  completeMaintenanceRepair,
+import { assignMaintenance, closeMaintenance,  completeMaintenanceRepair,
   getBranchesForDashboard, getMaintenanceAssignUsers, getMaintenanceById, getMaintenanceHistory,
   getMaintenanceList, getUsers,
   startMaintenance,
@@ -18,12 +18,12 @@ import {
   formatMoney,
   isTechnicianWorkStatus,
   JOB_TIME_OPTIONS,
-  MAINTENANCE_STATUSES,
+  MAINTENANCE_PIPELINE_STATUSES,
   parseJobTimeHours,
   pickField,
 } from "./constants";
 
-type ActionKind = "approve" | "assign" | "start" | "complete" | "close" | null;
+type ActionKind = "assign" | "start" | "complete" | "close" | null;
 
 const ACTIVE_ASSIGN_COUNT_STATUSES = new Set([
   "Assigned",
@@ -204,11 +204,6 @@ const MaintenanceDetail: React.FC = () => {
     try {
       let res: any;
       switch (actionKind) {
-        case "approve":
-          res = await approveMaintenance(requestId, {
-            Comments: comments.trim() || null,
-          });
-          break;
         case "assign": {
           const userId = Number(assignedTo);
           if (!userId) {
@@ -316,17 +311,15 @@ const MaintenanceDetail: React.FC = () => {
   const pipelineStatus = isTechnicianWorkStatus(status) ? "InProgress" : status;
 
   const actionTitle =
-    actionKind === "approve"
-      ? "Approve Maintenance Request"
-      : actionKind === "assign"
-        ? "Assign Maintenance Request"
-        : actionKind === "start"
-          ? (status === "Assigned" ? "Start Maintenance" : "Resume Maintenance")
-          : actionKind === "complete"
-            ? "Complete Repair"
-            : actionKind === "close"
-              ? "Close Maintenance Request"
-              : "";
+    actionKind === "assign"
+      ? "Assign Maintenance Request"
+      : actionKind === "start"
+        ? (status === "Assigned" ? "Start Maintenance" : "Resume Maintenance")
+        : actionKind === "complete"
+          ? "Complete Repair"
+          : actionKind === "close"
+            ? "Close Maintenance Request"
+            : "";
 
   if (!requestId || requestId <= 0) {
     return (
@@ -367,9 +360,9 @@ const MaintenanceDetail: React.FC = () => {
         <>
           <div className="kfc-card p-4">
             <div className="flex flex-wrap gap-2 items-center">
-              {MAINTENANCE_STATUSES.map((s, idx) => {
-                const currentIndex = MAINTENANCE_STATUSES.indexOf(
-                  pipelineStatus as (typeof MAINTENANCE_STATUSES)[number]
+              {MAINTENANCE_PIPELINE_STATUSES.map((s, idx) => {
+                const currentIndex = MAINTENANCE_PIPELINE_STATUSES.indexOf(
+                  pipelineStatus as (typeof MAINTENANCE_PIPELINE_STATUSES)[number]
                 );
                 const reached = currentIndex >= 0 && idx <= currentIndex;
                 return (
@@ -385,13 +378,13 @@ const MaintenanceDetail: React.FC = () => {
                     >
                       {s}
                     </span>
-                    {idx < MAINTENANCE_STATUSES.length - 1 && (
+                    {idx < MAINTENANCE_PIPELINE_STATUSES.length - 1 && (
                       <span className="text-gray-300">→</span>
                     )}
                   </React.Fragment>
                 );
               })}
-              {isTechnicianWorkStatus(status) && (
+              {(isTechnicianWorkStatus(status) || status === "Approved") && (
                 <span className="ml-2">
                   <StatusBadge value={status} />
                 </span>
@@ -403,12 +396,7 @@ const MaintenanceDetail: React.FC = () => {
             <div className="kfc-card-header flex flex-wrap items-center justify-between gap-2">
               <span>Details</span>
               <div className="flex flex-wrap gap-2">
-                {status === "Open" && (
-                  <button type="button" className="kfc-btn" onClick={() => openAction("approve")}>
-                    Approve
-                  </button>
-                )}
-                {status === "Approved" && (
+                {(status === "Open" || status === "Approved") && (
                   <button type="button" className="kfc-btn" onClick={() => openAction("assign")}>
                     Assign
                   </button>

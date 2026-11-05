@@ -1936,6 +1936,8 @@ export const getMaintenanceList = (params?: {
   assignedTo?: number | null;
   search?: string | null;
   categoryId?: number | null;
+  fromDate?: string | null;
+  toDate?: string | null;
   pageNumber?: number | null;
   pageSize?: number | null;
   sortBy?: string | null;
@@ -1949,6 +1951,8 @@ export const getMaintenanceList = (params?: {
       assignedTo: params?.assignedTo ?? undefined,
       search: params?.search || undefined,
       categoryId: params?.categoryId ?? undefined,
+      fromDate: params?.fromDate || undefined,
+      toDate: params?.toDate || undefined,
       pageNumber: params?.pageNumber ?? undefined,
       pageSize: params?.pageSize ?? undefined,
       sortBy: params?.sortBy || undefined,
@@ -2013,6 +2017,9 @@ export const completeMaintenanceRepair = (id: number, data: FormData) =>
 
 export const closeMaintenance = (id: number, data?: { Comments?: string | null }) =>
   api.post(`/Inventory/maintenance/${id}/close`, data ?? {});
+
+export const reopenMaintenance = (id: number, data?: { Comments?: string | null }) =>
+  api.post(`/Inventory/maintenance/${id}/reopen`, data ?? {});
 
 export const getMaintenanceHistory = (id: number) =>
   api.get(`/Inventory/maintenance/${id}/history`);

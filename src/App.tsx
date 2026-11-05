@@ -43,6 +43,9 @@ import InventoryMaintenanceDetail from "./pages/Inventory/MaintenanceDetail";
 import InventoryBranchAgentTasks from "./pages/Inventory/BranchAgentTasks";
 import InventoryTechnicianDashboard from "./pages/Inventory/TechnicianDashboard";
 import InventoryComplaint from "./pages/Inventory/InventoryComplaint";
+import CreateMaintenanceComplaint from "./pages/Inventory/CreateMaintenanceComplaint";
+import BranchComplaint from "./pages/Inventory/BranchComplaint";
+import InventoryComplaintReport from "./pages/Inventory/InventoryComplaintReport";
 import InventoryComplaintAnalytics from "./pages/Inventory/ComplaintAnalytics";
 import InventoryBranchInventoryAnalytics from "./pages/Inventory/BranchInventoryAnalytics";
 import InventoryTrade from "./pages/Inventory/Trade";
@@ -213,9 +216,12 @@ const App = () => {
               <Route path="/inventory/items" element={<InventoryItems />} />
               <Route path="/inventory/assets" element={<InventoryAssets />} />
               <Route path="/inventory/inventory-complaint" element={<InventoryComplaint />} />
+              <Route path="/inventory/create-maintenance-complaint" element={<CreateMaintenanceComplaint />} />
+              <Route path="/inventory/branch-complaint" element={<BranchComplaint />} />
+              <Route path="/inventory/inventory-complaint-report" element={<InventoryComplaintReport />} />
               <Route path="/inventory/complaint-analytics" element={<InventoryComplaintAnalytics />} />
               <Route path="/inventory/branch-inventory-analytics" element={<InventoryBranchInventoryAnalytics />} />
-              <Route path="/inventory/maintenance" element={<InventoryMaintenance />} />
+              <Route path="/inventory/maintenanceComplaints" element={<InventoryMaintenance />} />
               <Route path="/inventory/maintenance/:id" element={<InventoryMaintenanceDetail />} />
               <Route path="/inventory/branch-agent-tasks" element={<InventoryBranchAgentTasks />} />
               <Route path="/inventory/technician-dashboard" element={<InventoryTechnicianDashboard />} />

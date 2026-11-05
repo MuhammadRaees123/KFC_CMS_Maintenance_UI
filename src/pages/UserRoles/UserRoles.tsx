@@ -239,7 +239,7 @@ const UserRoles: React.FC = () => {
               <option value="Admin">Admin</option>
               <option value="Branch Manager">Branch Manager</option>
               <option value="Regional Manager">Regional Manager</option>
-              <option value="Area Manager">Area Manager</option>
+              <option value="Area Supervisor">Area Supervisor</option>
               <option value="Assistant Manager">Assistant Manager</option>
               <option value="Technician">Technician</option>
             </select>

@@ -183,13 +183,13 @@ const Maintenance: React.FC = () => {
             <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
-          <button
+          {/* <button
             type="button"
             className="kfc-btn"
             onClick={() => navigate("/inventory/assets")}
           >
             Create from Asset
-          </button>
+          </button> */}
         </div>
       </div>
 

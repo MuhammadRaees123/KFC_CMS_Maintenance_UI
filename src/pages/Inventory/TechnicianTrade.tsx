@@ -270,7 +270,7 @@ const TechnicianTrade: React.FC = () => {
             </select>
           </div>
           <div>
-            <label className="kfc-label">Trade</label>
+            <label className="kfc-label">Category Trade</label>
             <select
               name="TradeId"
               className="kfc-input"

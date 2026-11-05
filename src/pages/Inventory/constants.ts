@@ -23,6 +23,7 @@ export const COMPLAINT_TYPES = [
 
 export const PRIORITIES = ["Low", "Medium", "High"] as const;
 
+/** Full set including legacy Approved for filters/history. */
 export const MAINTENANCE_STATUSES = [
   "Open",
   "Approved",
@@ -34,6 +35,36 @@ export const MAINTENANCE_STATUSES = [
   "Repaired",
   "Closed",
 ] as const;
+
+/** New primary pipeline UI (Approved omitted as a normal stage). */
+export const MAINTENANCE_PIPELINE_STATUSES = [
+  "Open",
+  "Assigned",
+  "InProgress",
+  "Pending",
+  "WorkLoad",
+  "SparePartRequired",
+  "Repaired",
+  "Closed",
+] as const;
+
+/** Active complaint lifecycle for BranchComplaint (excludes Closed). Approved kept for legacy rows. */
+export const BRANCH_COMPLAINT_ACTIVE_STATUSES = [
+  "Open",
+  "Approved",
+  "Assigned",
+  "InProgress",
+  "Pending",
+  "WorkLoad",
+  "SparePartRequired",
+  "Repaired",
+] as const;
+
+export function isBranchComplaintActiveStatus(status?: string | null) {
+  return BRANCH_COMPLAINT_ACTIVE_STATUSES.includes(
+    status as (typeof BRANCH_COMPLAINT_ACTIVE_STATUSES)[number],
+  );
+}
 
 export const TECHNICIAN_WORK_STATUSES = [
   "Pending",

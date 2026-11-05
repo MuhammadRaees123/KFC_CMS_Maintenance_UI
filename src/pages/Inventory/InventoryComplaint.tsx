@@ -5,18 +5,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Eye, Loader2, RefreshCcw, Wrench } from "lucide-react";
+import { Eye, Loader2, RefreshCcw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 import {
-  approveMaintenance,
-  assignMaintenance,
   closeMaintenance,
-  createMaintenanceComplaint,
   getBranchesForDashboard,
   getInventoryAssets,
   getInventoryCategories,
-  getMaintenanceAssignUsers,
   getMaintenanceById,
   getMaintenanceHistoryByInventoryItem,
   getMaintenanceList,
@@ -25,7 +21,6 @@ import {
 
 import { getCurrentUser } from "@/types/auth";
 import InventoryModal from "./components/InventoryModal";
-import MaintenanceImagePicker from "./components/MaintenanceImagePicker";
 import MaintenanceReadOnlyView from "./components/MaintenanceReadOnlyView";
 import StatusBadge from "./components/StatusBadge";
 
@@ -33,15 +28,11 @@ import {
   apiErrorMessage,
   calculateRemainingJobTime,
   complaintRowClassName,
-  COMPLAINT_TYPES,
-  DEFAULT_JOB_TIME_HOURS,
   formatDate,
-  formatJobTime,
   formatMoney,
   INVENTORY_CONDITIONS,
   INVENTORY_STATUSES,
   pickField,
-  PRIORITIES,
 } from "./constants";
 
 type AssetRow = {
@@ -86,21 +77,6 @@ const repairTimestampMs = (value: unknown): number | null => {
   const timestamp = new Date(value as string | number | Date).getTime();
   return Number.isFinite(timestamp) ? timestamp : null;
 };
-
-const ACTIVE_ASSIGN_COUNT_STATUSES = new Set([
-  "Assigned",
-  "InProgress",
-  "WorkLoad",
-  "Pending",
-  "SparePartRequired",
-]);
-
-const displayUserName = (user: any) =>
-  user.userName ??
-  user.username ??
-  user.fullName ??
-  user.Name ??
-  `User ${user.userID ?? user.userId ?? user.id}`;
 
 const complaintRowsFromResponse = (data: unknown) => {
   if (Array.isArray(data)) return data as Record<string, unknown>[];
@@ -178,19 +154,7 @@ const InventoryComplaint: React.FC = () => {
   const [filterCondition, setFilterCondition] = useState("");
   const [filterSearch, setFilterSearch] = useState("");
 
-  const [selected, setSelected] = useState<AssetRow | null>(null);
-  const [showComplaint, setShowComplaint] = useState(false);
   const [actionSaving, setActionSaving] = useState(false);
-
-  const [complaintForm, setComplaintForm] = useState({
-    ComplaintType: "Broken",
-    Priority: "Medium",
-    Title: "",
-    Description: "",
-    Notes: "",
-    Condition: "",
-  });
-  const [complaintImage, setComplaintImage] = useState<File | null>(null);
 
   const [viewOpen, setViewOpen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
@@ -201,12 +165,6 @@ const InventoryComplaint: React.FC = () => {
   const [viewRequestId, setViewRequestId] = useState<number | null>(null);
   const [complaints, setComplaints] = useState<Record<string, unknown>[]>([]);
   const [now, setNow] = useState(() => Date.now());
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [assignRequestId, setAssignRequestId] = useState<number | null>(null);
-  const [assignApproved, setAssignApproved] = useState(false);
-  const [assignUsers, setAssignUsers] = useState<any[]>([]);
-  const [assignedTo, setAssignedTo] = useState("");
-  const [assignUsersLoading, setAssignUsersLoading] = useState(false);
   const [verifyRequestId, setVerifyRequestId] = useState<number | null>(null);
   const actionSaveCountRef = useRef(0);
   const autoCloseTimersRef = useRef<Map<number, number>>(new Map());
@@ -361,63 +319,6 @@ const InventoryComplaint: React.FC = () => {
     }
   };
 
-  const loadAssignUsers = async () => {
-    setAssignUsersLoading(true);
-    try {
-      const [usersRes, listRes] = await Promise.all([
-        getMaintenanceAssignUsers(),
-        getMaintenanceList(),
-      ]);
-      const technicians = Array.isArray(usersRes.data)
-        ? usersRes.data
-        : usersRes.data?.data || [];
-      const complaintRows = complaintRowsFromResponse(listRes.data);
-      const countByUser = new Map<string, number>();
-
-      complaintRows.forEach((row) => {
-        const status = String(pickField(row, "status", "Status") ?? "");
-        if (!ACTIVE_ASSIGN_COUNT_STATUSES.has(status)) return;
-        const assignedId = pickField(row, "assignedTo", "AssignedTo");
-        if (
-          assignedId === null ||
-          assignedId === undefined ||
-          assignedId === ""
-        ) {
-          return;
-        }
-        const key = String(assignedId);
-        countByUser.set(key, (countByUser.get(key) ?? 0) + 1);
-      });
-
-      const enriched = technicians.map((user: any) => {
-        const userId = user.userID ?? user.userId ?? user.Id ?? user.id;
-        return {
-          ...user,
-          activeTaskCount: countByUser.get(String(userId)) ?? 0,
-        };
-      });
-
-      enriched.sort((a: any, b: any) => {
-        if (a.activeTaskCount !== b.activeTaskCount) {
-          return a.activeTaskCount - b.activeTaskCount;
-        }
-        return String(displayUserName(a)).localeCompare(
-          String(displayUserName(b)),
-        );
-      });
-      setAssignUsers(enriched);
-    } catch (error: any) {
-      setAssignUsers([]);
-      toast({
-        title: "Error",
-        description: apiErrorMessage(error, "Failed to load users."),
-        variant: "destructive",
-      });
-    } finally {
-      setAssignUsersLoading(false);
-    }
-  };
-
   useEffect(() => {
     const initialize = async () => {
       await loadLookups();
@@ -505,29 +406,6 @@ const InventoryComplaint: React.FC = () => {
     )
     .join("|");
 
-  const resolveCondition = (value?: string) =>
-    INVENTORY_CONDITIONS.includes(
-      value as (typeof INVENTORY_CONDITIONS)[number],
-    )
-      ? value!
-      : "";
-
-  const openComplaint = (row: AssetRow) => {
-    setSelected(row);
-
-    setComplaintForm({
-      ComplaintType: "Broken",
-      Priority: "Medium",
-      Title: "",
-      Description: "",
-      Notes: "",
-      Condition: resolveCondition(row.condition),
-    });
-    setComplaintImage(null);
-
-    setShowComplaint(true);
-  };
-
   const openView = async (row: AssetRow) => {
     const inventoryItemId = Number(row.inventoryItemId);
     if (!inventoryItemId) return;
@@ -611,152 +489,6 @@ const InventoryComplaint: React.FC = () => {
       setViewOpen(false);
     } finally {
       setViewLoading(false);
-    }
-  };
-
-  const submitComplaint = async () => {
-    if (!selected) return;
-
-    if (!complaintForm.ComplaintType || !complaintForm.Title.trim()) {
-      toast({
-        title: "Validation",
-        description: "Complaint Type and Title are required.",
-        variant: "destructive",
-      });
-
-      return;
-    }
-
-    if (!complaintForm.Condition) {
-      toast({
-        title: "Validation",
-        description: "Condition is required.",
-        variant: "destructive",
-      });
-
-      return;
-    }
-
-    beginActionSave();
-
-    try {
-      const formData = new FormData();
-      formData.append("InventoryItemId", String(selected.inventoryItemId));
-      formData.append("ItemId", String(selected.itemId));
-      formData.append("BranchId", String(selected.branchId));
-      formData.append("ComplaintType", complaintForm.ComplaintType);
-      formData.append("Priority", complaintForm.Priority || "Medium");
-      formData.append("Title", complaintForm.Title.trim());
-      if (complaintForm.Description?.trim()) {
-        formData.append("Description", complaintForm.Description.trim());
-      }
-      if (complaintForm.Notes?.trim()) {
-        formData.append("Notes", complaintForm.Notes.trim());
-      }
-      formData.append("Condition", complaintForm.Condition);
-      if (complaintImage) {
-        formData.append("image", complaintImage);
-      }
-
-      const res = await createMaintenanceComplaint(formData);
-      const created = (res.data?.data ?? res.data) as Record<string, unknown>;
-      const requestId = Number(
-        pickField(created, "maintenanceRequestId", "MaintenanceRequestId"),
-      );
-
-      toast({
-        title: "Success",
-        description: [
-          res.data?.message || "Maintenance complaint created successfully.",
-          `Item: ${selected.itemName || "-"}`,
-          selected.itemCode ? `Code: ${selected.itemCode}` : null,
-          selected.serialNumber ? `Serial: ${selected.serialNumber}` : null,
-          selected.assetTag ? `Asset Tag: ${selected.assetTag}` : null,
-        ]
-          .filter(Boolean)
-          .join(" | "),
-      });
-
-      await Promise.all([fetchAssets(), fetchComplaints()]);
-      setComplaintImage(null);
-      setShowComplaint(false);
-
-      if (!Number.isFinite(requestId) || requestId <= 0) {
-        toast({
-          title: "Notice",
-          description:
-            "Complaint was created, but its id was not returned. Eligible technicians can still see it once it is listed.",
-        });
-        return;
-      }
-      // Trade-based accept: do not open Assign Technician modal after create.
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: apiErrorMessage(error, "Failed to create complaint."),
-        variant: "destructive",
-      });
-    } finally {
-      endActionSave();
-    }
-  };
-
-  const submitAssign = async () => {
-    if (!assignRequestId) return;
-
-    const technicianId = Number(assignedTo);
-    if (!technicianId) {
-      toast({
-        title: "Validation",
-        description: "Please select a technician.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    beginActionSave();
-    try {
-      if (!assignApproved) {
-        try {
-          await approveMaintenance(assignRequestId, { Comments: null });
-          setAssignApproved(true);
-        } catch (error: any) {
-          toast({
-            title: "Error",
-            description: apiErrorMessage(error, "Failed to approve complaint."),
-            variant: "destructive",
-          });
-          await Promise.all([fetchAssets(), fetchComplaints()]);
-          return;
-        }
-      }
-
-      try {
-        await assignMaintenance(assignRequestId, {
-          AssignedTo: technicianId,
-          JobTimeHours: DEFAULT_JOB_TIME_HOURS,
-        });
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: apiErrorMessage(error, "Failed to assign technician."),
-          variant: "destructive",
-        });
-        await Promise.all([fetchAssets(), fetchComplaints()]);
-        return;
-      }
-
-      toast({
-        title: "Success",
-        description: `Technician assigned. Job time is ${formatJobTime(DEFAULT_JOB_TIME_HOURS)}.`,
-      });
-      setAssignOpen(false);
-      setAssignRequestId(null);
-      setAssignApproved(false);
-      setAssignedTo("");
-      await Promise.all([fetchAssets(), fetchComplaints()]);
-    } finally {
-      endActionSave();
     }
   };
 
@@ -1150,9 +882,9 @@ const InventoryComplaint: React.FC = () => {
 
                   <th className="border px-3 py-2 text-left">Branch</th>
 
-                  <th className="border px-3 py-2 text-left">Status</th>
+                  {/* <th className="border px-3 py-2 text-left">Status</th>
 
-                  <th className="border px-3 py-2 text-left">Condition</th>
+                  <th className="border px-3 py-2 text-left">Condition</th> */}
 
                   <th className="border px-3 py-2 text-left">Purchase</th>
 
@@ -1235,7 +967,7 @@ const InventoryComplaint: React.FC = () => {
                           {branchName(row.branchId)}
                         </td>
 
-                        <td className="border px-3 py-1.5">
+                        {/* <td className="border px-3 py-1.5">
                           <StatusBadge
                             value={
                               row.maintenanceStatus === "Closed"
@@ -1243,11 +975,11 @@ const InventoryComplaint: React.FC = () => {
                                 : row.maintenanceStatus
                             }
                           />
-                        </td>
+                        </td> */}
 
-                        <td className="border px-3 py-1.5">
+                        {/* <td className="border px-3 py-1.5">
                           <StatusBadge value={row.condition} kind="condition" />
-                        </td>
+                        </td> */}
 
                         <td className="border px-3 py-1.5">
                           <div>{formatDate(row.purchaseDate)}</div>
@@ -1275,17 +1007,7 @@ const InventoryComplaint: React.FC = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            {!activeComplaint && (
-                              <button
-                                type="button"
-                                title="Create Complaint"
-                                className="kfc-btn-outline p-1.5 rounded-md"
-                                onClick={() => openComplaint(row)}
-                              >
-                                <Wrench className="w-4 h-4" />
-                              </button>
-                            )}
-                            {complaintStatus === "Repaired" &&
+                            {/* {complaintStatus === "Repaired" &&
                               complaintRequestId > 0 && (
                                 <button
                                   type="button"
@@ -1297,7 +1019,7 @@ const InventoryComplaint: React.FC = () => {
                                 >
                                   Verify
                                 </button>
-                              )}
+                              )} */}
                           </div>
                         </td>
                       </tr>
@@ -1318,178 +1040,6 @@ const InventoryComplaint: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Create Complaint Modal */}
-      {showComplaint && selected && (
-        <InventoryModal
-          title="Create Maintenance Complaint"
-          onClose={() => {
-            setComplaintImage(null);
-            setShowComplaint(false);
-          }}
-        >
-          <div className="space-y-3 text-sm">
-            <div className="bg-gray-50 border rounded p-3 space-y-1">
-              <div>
-                <strong>Item:</strong> {selected.itemName} ({selected.itemCode})
-              </div>
-
-              <div>
-                <strong>Serial Number:</strong> {selected.serialNumber}
-              </div>
-
-              <div>
-                <strong>Branch:</strong> {branchName(selected.branchId)}
-              </div>
-            </div>
-
-            <div>
-              <label className="kfc-label">Complaint Type</label>
-
-              <select
-                className="kfc-input"
-                value={complaintForm.ComplaintType}
-                onChange={(e) =>
-                  setComplaintForm((prev) => ({
-                    ...prev,
-                    ComplaintType: e.target.value,
-                  }))
-                }
-              >
-                {COMPLAINT_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="kfc-label">Priority</label>
-
-              <select
-                className="kfc-input"
-                value={complaintForm.Priority}
-                onChange={(e) =>
-                  setComplaintForm((prev) => ({
-                    ...prev,
-                    Priority: e.target.value,
-                  }))
-                }
-              >
-                {PRIORITIES.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {priority}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="kfc-label">Condition</label>
-
-              <select
-                className="kfc-input"
-                value={complaintForm.Condition}
-                onChange={(e) =>
-                  setComplaintForm((prev) => ({
-                    ...prev,
-                    Condition: e.target.value,
-                  }))
-                }
-              >
-                <option value="">Select Condition</option>
-
-                {INVENTORY_CONDITIONS.map((condition) => (
-                  <option key={condition} value={condition}>
-                    {condition}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="kfc-label">Title</label>
-
-              <input
-                className="kfc-input"
-                value={complaintForm.Title}
-                onChange={(e) =>
-                  setComplaintForm((prev) => ({
-                    ...prev,
-                    Title: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div>
-              <label className="kfc-label">Description</label>
-
-              <textarea
-                className="kfc-input min-h-[70px]"
-                value={complaintForm.Description}
-                onChange={(e) =>
-                  setComplaintForm((prev) => ({
-                    ...prev,
-                    Description: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div>
-              <label className="kfc-label">Notes</label>
-
-              <textarea
-                className="kfc-input min-h-[60px]"
-                value={complaintForm.Notes}
-                onChange={(e) =>
-                  setComplaintForm((prev) => ({
-                    ...prev,
-                    Notes: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <MaintenanceImagePicker
-              label="Image"
-              file={complaintImage}
-              onChange={setComplaintImage}
-              onError={(message) =>
-                toast({
-                  title: "Validation",
-                  description: message,
-                  variant: "destructive",
-                })
-              }
-            />
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="kfc-btn-outline"
-                onClick={() => {
-                  setComplaintImage(null);
-                  setShowComplaint(false);
-                }}
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                className="kfc-btn"
-                disabled={actionSaving}
-                onClick={submitComplaint}
-              >
-                {actionSaving ? "Submitting..." : "Create Complaint"}
-              </button>
-            </div>
-          </div>
-        </InventoryModal>
-      )}
 
       {viewOpen && (
         <InventoryModal
@@ -1566,63 +1116,6 @@ const InventoryComplaint: React.FC = () => {
         </InventoryModal>
       )}
 
-      {assignOpen && assignRequestId && (
-        <InventoryModal
-          title="Assign Technician"
-          onClose={() => {
-            if (actionSaving) return;
-            setAssignOpen(false);
-          }}
-        >
-          <div className="space-y-3 text-sm">
-            <div>
-              <strong>Complaint #{assignRequestId}</strong>
-            </div>
-            <div>
-              <strong>Job Time:</strong> {formatJobTime(DEFAULT_JOB_TIME_HOURS)}
-            </div>
-            <div>
-              <label className="kfc-label">Technician</label>
-              <select
-                className="kfc-input"
-                value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
-                disabled={assignUsersLoading || actionSaving}
-              >
-                <option value="">-- Select Technician --</option>
-                {assignUsers.map((user: any) => {
-                  const userId =
-                    user.userID ?? user.userId ?? user.Id ?? user.id;
-                  const count = Number(user.activeTaskCount ?? 0);
-                  return (
-                    <option key={userId} value={userId}>
-                      {`${displayUserName(user)} (${count})`}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                className="kfc-btn-outline"
-                disabled={actionSaving}
-                onClick={() => setAssignOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="kfc-btn"
-                disabled={actionSaving || assignUsersLoading}
-                onClick={submitAssign}
-              >
-                {actionSaving ? "Assigning..." : "Assign"}
-              </button>
-            </div>
-          </div>
-        </InventoryModal>
-      )}
     </div>
   );
 };
