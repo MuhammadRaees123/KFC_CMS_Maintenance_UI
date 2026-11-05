@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Loader2, RefreshCcw } from "lucide-react";
 import {
@@ -53,6 +54,7 @@ const Items: React.FC = () => {
   const [search, setSearch] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [activeTab, setActiveTab] = useState<"grid" | "form">("grid");
 
   const loadLookups = async () => {
     try {
@@ -123,6 +125,11 @@ const Items: React.FC = () => {
     setIsEditing(false);
   };
 
+  const handleCancel = () => {
+    resetForm();
+    setActiveTab("grid");
+  };
+
   const handleEdit = (row: ItemRow) => {
     setFormData({
       ItemId: row.itemId,
@@ -147,7 +154,7 @@ const Items: React.FC = () => {
       IsActive: !!row.isActive,
     });
     setIsEditing(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setActiveTab("form");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -189,6 +196,7 @@ const Items: React.FC = () => {
       });
       resetForm();
       fetchItems();
+      setActiveTab("grid");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -215,243 +223,258 @@ const Items: React.FC = () => {
         </button>
       </div>
 
-      <div className="kfc-card">
-        <div className="kfc-card-header">
-          {isEditing ? "Edit Item" : "Add Item"}
-        </div>
-        <form onSubmit={handleSubmit} className="kfc-form p-4">
-          <div>
-            <label className="kfc-label">Category</label>
-            <select
-              name="InventoryCategoryId"
-              value={formData.InventoryCategoryId}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            >
-              <option value="">-- Select Category --</option>
-              {categories.map((c) => (
-                <option key={c.inventoryCategoryId} value={c.inventoryCategoryId}>
-                  {c.categoryName}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Item Code</label>
-            <input
-              name="ItemCode"
-              value={formData.ItemCode}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Item Name</label>
-            <input
-              name="ItemName"
-              value={formData.ItemName}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Item Type</label>
-            <select
-              name="ItemType"
-              value={formData.ItemType}
-              onChange={handleChange}
-              className="kfc-input"
-            >
-              {ITEM_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Brand</label>
-            <input name="Brand" value={formData.Brand} onChange={handleChange} className="kfc-input" />
-          </div>
-          <div>
-            <label className="kfc-label">Model</label>
-            <input name="Model" value={formData.Model} onChange={handleChange} className="kfc-input" />
-          </div>
-          <div>
-            <label className="kfc-label">Unit of Measure</label>
-            <input
-              name="UnitOfMeasure"
-              value={formData.UnitOfMeasure}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Expected Life (Months)</label>
-            <input
-              type="number"
-              name="ExpectedLifeMonths"
-              value={formData.ExpectedLifeMonths}
-              onChange={handleChange}
-              className="kfc-input"
-              min={0}
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Warranty (Months)</label>
-            <input
-              type="number"
-              name="WarrantyMonths"
-              value={formData.WarrantyMonths}
-              onChange={handleChange}
-              className="kfc-input"
-              min={0}
-            />
-          </div>
-          <div className="col-span-full">
-            <label className="kfc-label">Description</label>
-            <textarea
-              name="Description"
-              value={formData.Description}
-              onChange={handleChange}
-              className="kfc-input min-h-[70px]"
-            />
-          </div>
-          <div className="kfc-switch">
-            <span>Serialized</span>
-            <Switch
-              checked={formData.IsSerialized}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, IsSerialized: checked }))
-              }
-            />
-          </div>
-          <div className="kfc-switch">
-            <span>Maintenance Required</span>
-            <Switch
-              checked={formData.IsMaintenanceRequired}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, IsMaintenanceRequired: checked }))
-              }
-            />
-          </div>
-          <div className="kfc-switch">
-            <span>Active</span>
-            <Switch
-              checked={formData.IsActive}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, IsActive: checked }))
-              }
-            />
-          </div>
-          <div className="col-span-full flex justify-end gap-2 mt-2">
-            {isEditing && (
-              <button type="button" className="kfc-btn-outline" onClick={resetForm}>
-                Cancel
-              </button>
-            )}
-            <button type="submit" className="kfc-btn" disabled={saving}>
-              {saving ? "Saving..." : isEditing ? "Update Item" : "Save Item"}
-            </button>
-          </div>
-        </form>
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "grid" | "form")}
+        className="w-full"
+      >
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="grid">Grid</TabsTrigger>
+          <TabsTrigger value="form">Create Form</TabsTrigger>
+        </TabsList>
 
-      <div className="kfc-card">
-        <div className="kfc-card-header flex flex-wrap items-center justify-between gap-3">
-          <span>Items</span>
-          <div className="flex flex-wrap gap-2">
-            <select
-              className="kfc-input"
-              value={filterCategoryId}
-              onChange={(e) => setFilterCategoryId(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.inventoryCategoryId} value={c.inventoryCategoryId}>
-                  {c.categoryName}
-                </option>
-              ))}
-            </select>
-            <input
-              className="kfc-input max-w-xs"
-              placeholder="Search items..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="p-3 overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+        <TabsContent value="grid">
+          <div className="kfc-card">
+            <div className="kfc-card-header flex flex-wrap items-center justify-between gap-3">
+              <span>Items</span>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  className="kfc-input"
+                  value={filterCategoryId}
+                  onChange={(e) => setFilterCategoryId(e.target.value)}
+                >
+                  <option value="">All Categories</option>
+                  {categories.map((c) => (
+                    <option key={c.inventoryCategoryId} value={c.inventoryCategoryId}>
+                      {c.categoryName}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="kfc-input max-w-xs"
+                  placeholder="Search items..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
             </div>
-          ) : (
-            <table className="min-w-full border text-sm">
-              <thead className="bg-[#fff6f6] text-[#bc3342]">
-                <tr>
-                  <th className="border px-3 py-2 text-left">Code</th>
-                  <th className="border px-3 py-2 text-left">Name</th>
-                  <th className="border px-3 py-2 text-left">Category</th>
-                  <th className="border px-3 py-2 text-left">Brand</th>
-                  <th className="border px-3 py-2 text-left">Model</th>
-                  <th className="border px-3 py-2 text-left">Type</th>
-                  <th className="border px-3 py-2 text-center">Serialized</th>
-                  <th className="border px-3 py-2 text-center">Maint.</th>
-                  <th className="border px-3 py-2 text-center">Active</th>
-                  <th className="border px-3 py-2 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length > 0 ? (
-                  filtered.map((row) => (
-                    <tr key={row.itemId} className="hover:bg-gray-50">
-                      <td className="border px-3 py-1.5">{row.itemCode}</td>
-                      <td className="border px-3 py-1.5 font-medium">{row.itemName}</td>
-                      <td className="border px-3 py-1.5">{row.categoryName || "-"}</td>
-                      <td className="border px-3 py-1.5">{row.brand || "-"}</td>
-                      <td className="border px-3 py-1.5">{row.model || "-"}</td>
-                      <td className="border px-3 py-1.5">{row.itemType || "-"}</td>
-                      <td className="border px-3 py-1.5 text-center">
-                        {row.isSerialized ? "Yes" : "No"}
-                      </td>
-                      <td className="border px-3 py-1.5 text-center">
-                        {row.isMaintenanceRequired ? "Yes" : "No"}
-                      </td>
-                      <td className="border px-3 py-1.5 text-center">
-                        {row.isActive ? (
-                          <span className="text-green-600 font-semibold">✔</span>
-                        ) : (
-                          <span className="text-red-500 font-semibold">✖</span>
-                        )}
-                      </td>
-                      <td className="border px-3 py-1.5 text-center">
-                        <button
-                          type="button"
-                          title="Edit"
-                          onClick={() => handleEdit(row)}
-                          className="kfc-btn-outline p-1.5 rounded-md"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                      </td>
+            <div className="p-3 overflow-x-auto">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+                </div>
+              ) : (
+                <table className="min-w-full border text-sm">
+                  <thead className="bg-[#fff6f6] text-[#bc3342]">
+                    <tr>
+                      <th className="border px-3 py-2 text-left">Code</th>
+                      <th className="border px-3 py-2 text-left">Name</th>
+                      <th className="border px-3 py-2 text-left">Category</th>
+                      <th className="border px-3 py-2 text-left">Brand</th>
+                      <th className="border px-3 py-2 text-left">Model</th>
+                      <th className="border px-3 py-2 text-left">Type</th>
+                      <th className="border px-3 py-2 text-center">Serialized</th>
+                      <th className="border px-3 py-2 text-center">Maint.</th>
+                      <th className="border px-3 py-2 text-center">Active</th>
+                      <th className="border px-3 py-2 text-center">Actions</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={10} className="border px-3 py-4 text-center text-gray-500">
-                      No items found.
-                    </td>
-                  </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length > 0 ? (
+                      filtered.map((row) => (
+                        <tr key={row.itemId} className="hover:bg-gray-50">
+                          <td className="border px-3 py-1.5">{row.itemCode}</td>
+                          <td className="border px-3 py-1.5 font-medium">{row.itemName}</td>
+                          <td className="border px-3 py-1.5">{row.categoryName || "-"}</td>
+                          <td className="border px-3 py-1.5">{row.brand || "-"}</td>
+                          <td className="border px-3 py-1.5">{row.model || "-"}</td>
+                          <td className="border px-3 py-1.5">{row.itemType || "-"}</td>
+                          <td className="border px-3 py-1.5 text-center">
+                            {row.isSerialized ? "Yes" : "No"}
+                          </td>
+                          <td className="border px-3 py-1.5 text-center">
+                            {row.isMaintenanceRequired ? "Yes" : "No"}
+                          </td>
+                          <td className="border px-3 py-1.5 text-center">
+                            {row.isActive ? (
+                              <span className="text-green-600 font-semibold">✔</span>
+                            ) : (
+                              <span className="text-red-500 font-semibold">✖</span>
+                            )}
+                          </td>
+                          <td className="border px-3 py-1.5 text-center">
+                            <button
+                              type="button"
+                              title="Edit"
+                              onClick={() => handleEdit(row)}
+                              className="kfc-btn-outline p-1.5 rounded-md"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={10} className="border px-3 py-4 text-center text-gray-500">
+                          No items found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="form">
+          <div className="kfc-card">
+            <div className="kfc-card-header">
+              {isEditing ? "Edit Item" : "Add Item"}
+            </div>
+            <form onSubmit={handleSubmit} className="kfc-form p-4">
+              <div>
+                <label className="kfc-label">Category</label>
+                <select
+                  name="InventoryCategoryId"
+                  value={formData.InventoryCategoryId}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  required
+                >
+                  <option value="">-- Select Category --</option>
+                  {categories.map((c) => (
+                    <option key={c.inventoryCategoryId} value={c.inventoryCategoryId}>
+                      {c.categoryName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="kfc-label">Item Code</label>
+                <input
+                  name="ItemCode"
+                  value={formData.ItemCode}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Item Name</label>
+                <input
+                  name="ItemName"
+                  value={formData.ItemName}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Item Type</label>
+                <select
+                  name="ItemType"
+                  value={formData.ItemType}
+                  onChange={handleChange}
+                  className="kfc-input"
+                >
+                  {ITEM_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="kfc-label">Brand</label>
+                <input name="Brand" value={formData.Brand} onChange={handleChange} className="kfc-input" />
+              </div>
+              <div>
+                <label className="kfc-label">Model</label>
+                <input name="Model" value={formData.Model} onChange={handleChange} className="kfc-input" />
+              </div>
+              <div>
+                <label className="kfc-label">Unit of Measure</label>
+                <input
+                  name="UnitOfMeasure"
+                  value={formData.UnitOfMeasure}
+                  onChange={handleChange}
+                  className="kfc-input"
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Expected Life (Months)</label>
+                <input
+                  type="number"
+                  name="ExpectedLifeMonths"
+                  value={formData.ExpectedLifeMonths}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  min={0}
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Warranty (Months)</label>
+                <input
+                  type="number"
+                  name="WarrantyMonths"
+                  value={formData.WarrantyMonths}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  min={0}
+                />
+              </div>
+              <div className="col-span-full">
+                <label className="kfc-label">Description</label>
+                <textarea
+                  name="Description"
+                  value={formData.Description}
+                  onChange={handleChange}
+                  className="kfc-input min-h-[70px]"
+                />
+              </div>
+              <div className="kfc-switch">
+                <span>Serialized</span>
+                <Switch
+                  checked={formData.IsSerialized}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, IsSerialized: checked }))
+                  }
+                />
+              </div>
+              <div className="kfc-switch">
+                <span>Maintenance Required</span>
+                <Switch
+                  checked={formData.IsMaintenanceRequired}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, IsMaintenanceRequired: checked }))
+                  }
+                />
+              </div>
+              <div className="kfc-switch">
+                <span>Active</span>
+                <Switch
+                  checked={formData.IsActive}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, IsActive: checked }))
+                  }
+                />
+              </div>
+              <div className="col-span-full flex justify-end gap-2 mt-2">
+                {isEditing && (
+                  <button type="button" className="kfc-btn-outline" onClick={handleCancel}>
+                    Cancel
+                  </button>
                 )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+                <button type="submit" className="kfc-btn" disabled={saving}>
+                  {saving ? "Saving..." : isEditing ? "Update Item" : "Save Item"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -607,7 +607,7 @@ const BranchAgentTasks: React.FC = () => {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-xl font-semibold text-[#bc3342]">
-          Branch Agent Tasks
+          Technician Complaint Tasks
         </h1>
         <button
           type="button"

@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Loader2, RefreshCcw } from "lucide-react";
+import { Eye, Loader2, RefreshCcw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   getBranchesForDashboard,
+  getMaintenanceById,
+  getMaintenanceHistory,
   getMaintenanceList,
+  getUsers,
 } from "@/services/api";
 import { getCurrentUser } from "@/types/auth";
+import InventoryModal from "./components/InventoryModal";
+import MaintenanceReadOnlyView from "./components/MaintenanceReadOnlyView";
 import StatusBadge from "./components/StatusBadge";
 import {
   apiErrorMessage,
@@ -32,6 +37,9 @@ const InventoryComplaintReport: React.FC = () => {
 
   const [rows, setRows] = useState<MaintenanceRow[]>([]);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
+  const [userNameMap, setUserNameMap] = useState<Map<number, string>>(
+    () => new Map(),
+  );
   const [loading, setLoading] = useState(false);
 
   const [branchId, setBranchId] = useState(
@@ -46,6 +54,12 @@ const InventoryComplaintReport: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewDetail, setViewDetail] = useState<MaintenanceRow | null>(null);
+  const [viewHistory, setViewHistory] = useState<MaintenanceRow[]>([]);
+  const [viewRequestId, setViewRequestId] = useState<number | null>(null);
 
   const branchName = (id?: number | null) => {
     if (!id) return "-";
@@ -71,6 +85,40 @@ const InventoryComplaintReport: React.FC = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const userRes = await getUsers();
+      const users = Array.isArray(userRes.data) ? userRes.data : [];
+      const map = new Map<number, string>();
+
+      users.forEach((user: MaintenanceRow) => {
+        const userId = Number(user.id ?? user.Id);
+        if (!Number.isFinite(userId) || userId <= 0) return;
+
+        const userName = String(
+          user.userName ?? user.UserName ?? user.name ?? user.Name ?? "",
+        ).trim();
+
+        if (userName) map.set(userId, userName);
+      });
+
+      setUserNameMap(map);
+    } catch {
+      setUserNameMap(new Map());
+    }
+  };
+
+  const actionByName = (id?: number | null) => {
+    if (id === null || id === undefined || !Number.isFinite(Number(id))) {
+      return "-";
+    }
+
+    const numericId = Number(id);
+    if (numericId <= 0) return "-";
+
+    return userNameMap.get(numericId) || String(numericId);
   };
 
   const fetchList = async (
@@ -153,11 +201,63 @@ const InventoryComplaintReport: React.FC = () => {
   useEffect(() => {
     const initialize = async () => {
       await loadBranches();
+      await loadUsers();
       await fetchList(1, "desc");
     };
     void initialize();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const openView = async (row: MaintenanceRow) => {
+    const requestId = Number(
+      pickField(row, "maintenanceRequestId", "MaintenanceRequestId"),
+    );
+    if (!requestId) return;
+
+    setViewOpen(true);
+    setViewRequestId(requestId);
+    setViewLoading(true);
+    setViewDetail(null);
+    setViewHistory([]);
+
+    try {
+      const detailRes = await getMaintenanceById(requestId);
+      setViewDetail((detailRes.data || null) as MaintenanceRow | null);
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: apiErrorMessage(
+          error,
+          "Failed to load complaint details.",
+        ),
+        variant: "destructive",
+      });
+      setViewOpen(false);
+      setViewLoading(false);
+      return;
+    }
+
+    try {
+      const historyRes = await getMaintenanceHistory(requestId);
+      setViewHistory(
+        Array.isArray(historyRes.data)
+          ? (historyRes.data as MaintenanceRow[])
+          : [],
+      );
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: apiErrorMessage(
+          error,
+          "Failed to load complaint history.",
+        ),
+        variant: "destructive",
+      });
+      setViewHistory([]);
+    } finally {
+      setViewLoading(false);
+    }
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -291,6 +391,7 @@ const InventoryComplaintReport: React.FC = () => {
                   <th className="border px-3 py-2 text-left">Job Time</th>
                   <th className="border px-3 py-2 text-left">Reported</th>
                   <th className="border px-3 py-2 text-left">Closed</th>
+                  <th className="border px-3 py-2 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,13 +462,25 @@ const InventoryComplaintReport: React.FC = () => {
                             pickField(row, "closedDate", "ClosedDate"),
                           )}
                         </td>
+                        <td className="border px-3 py-1.5 text-center">
+                          <div className="flex flex-wrap gap-1.5 justify-center">
+                            <button
+                              type="button"
+                              title="View"
+                              className="kfc-btn-outline p-1.5 rounded-md"
+                              onClick={() => openView(row)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={12}
                       className="border px-3 py-4 text-center text-gray-500"
                     >
                       No complaints found for the selected filters.
@@ -417,6 +530,27 @@ const InventoryComplaintReport: React.FC = () => {
           </div>
         )}
       </div>
+
+      {viewOpen && (
+        <InventoryModal
+          title={`Complaint #${viewRequestId ?? ""}`}
+          onClose={() => setViewOpen(false)}
+          wide
+        >
+          {viewLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+            </div>
+          ) : (
+            <MaintenanceReadOnlyView
+              detail={viewDetail}
+              history={viewHistory}
+              branchName={branchName}
+              actionByName={actionByName}
+            />
+          )}
+        </InventoryModal>
+      )}
     </div>
   );
 };

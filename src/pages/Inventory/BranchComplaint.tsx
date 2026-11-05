@@ -1,14 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCcw } from "lucide-react";
+import { Eye, Loader2, RefreshCcw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   closeMaintenance,
   getBranchesForDashboard,
+  getMaintenanceById,
+  getMaintenanceHistory,
   getMaintenanceList,
+  getUsers,
   reopenMaintenance,
 } from "@/services/api";
 import { getCurrentUser } from "@/types/auth";
 import InventoryModal from "./components/InventoryModal";
+import MaintenanceReadOnlyView from "./components/MaintenanceReadOnlyView";
 import StatusBadge from "./components/StatusBadge";
 import {
   apiErrorMessage,
@@ -48,6 +52,9 @@ const BranchComplaint: React.FC = () => {
 
   const [rows, setRows] = useState<MaintenanceRow[]>([]);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
+  const [userNameMap, setUserNameMap] = useState<Map<number, string>>(
+    () => new Map(),
+  );
   const [loading, setLoading] = useState(false);
   const [actionSaving, setActionSaving] = useState(false);
   const [verifyRequestId, setVerifyRequestId] = useState<number | null>(null);
@@ -57,6 +64,12 @@ const BranchComplaint: React.FC = () => {
   const [search, setSearch] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
   const [now, setNow] = useState(() => Date.now());
+
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewDetail, setViewDetail] = useState<MaintenanceRow | null>(null);
+  const [viewHistory, setViewHistory] = useState<MaintenanceRow[]>([]);
+  const [viewRequestId, setViewRequestId] = useState<number | null>(null);
 
   const branchName = (id?: number | null) => {
     if (!id) return "-";
@@ -82,6 +95,40 @@ const BranchComplaint: React.FC = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const loadUsers = async () => {
+    try {
+      const userRes = await getUsers();
+      const users = Array.isArray(userRes.data) ? userRes.data : [];
+      const map = new Map<number, string>();
+
+      users.forEach((user: MaintenanceRow) => {
+        const userId = Number(user.id ?? user.Id);
+        if (!Number.isFinite(userId) || userId <= 0) return;
+
+        const userName = String(
+          user.userName ?? user.UserName ?? user.name ?? user.Name ?? "",
+        ).trim();
+
+        if (userName) map.set(userId, userName);
+      });
+
+      setUserNameMap(map);
+    } catch {
+      setUserNameMap(new Map());
+    }
+  };
+
+  const actionByName = (id?: number | null) => {
+    if (id === null || id === undefined || !Number.isFinite(Number(id))) {
+      return "-";
+    }
+
+    const numericId = Number(id);
+    if (numericId <= 0) return "-";
+
+    return userNameMap.get(numericId) || String(numericId);
   };
 
   const fetchList = async () => {
@@ -116,6 +163,7 @@ const BranchComplaint: React.FC = () => {
   useEffect(() => {
     const initialize = async () => {
       await loadBranches();
+      await loadUsers();
       await fetchList();
     };
     void initialize();
@@ -149,6 +197,57 @@ const BranchComplaint: React.FC = () => {
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE,
   );
+
+  const openView = async (row: MaintenanceRow) => {
+    const requestId = Number(
+      pickField(row, "maintenanceRequestId", "MaintenanceRequestId"),
+    );
+    if (!requestId) return;
+
+    setViewOpen(true);
+    setViewRequestId(requestId);
+    setViewLoading(true);
+    setViewDetail(null);
+    setViewHistory([]);
+
+    try {
+      const detailRes = await getMaintenanceById(requestId);
+      setViewDetail((detailRes.data || null) as MaintenanceRow | null);
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: apiErrorMessage(
+          error,
+          "Failed to load complaint details.",
+        ),
+        variant: "destructive",
+      });
+      setViewOpen(false);
+      setViewLoading(false);
+      return;
+    }
+
+    try {
+      const historyRes = await getMaintenanceHistory(requestId);
+      setViewHistory(
+        Array.isArray(historyRes.data)
+          ? (historyRes.data as MaintenanceRow[])
+          : [],
+      );
+    } catch (error: unknown) {
+      toast({
+        title: "Error",
+        description: apiErrorMessage(
+          error,
+          "Failed to load complaint history.",
+        ),
+        variant: "destructive",
+      });
+      setViewHistory([]);
+    } finally {
+      setViewLoading(false);
+    }
+  };
 
   const openVerifyConfirm = (requestId: number) => {
     if (!requestId) return;
@@ -367,28 +466,36 @@ const BranchComplaint: React.FC = () => {
                           )}
                         </td>
                         <td className="border px-3 py-1.5 text-center">
-                          {rowStatus === "Repaired" && requestId > 0 ? (
-                            <div className="flex flex-wrap gap-1.5 justify-center">
-                              <button
-                                type="button"
-                                className="kfc-btn-outline"
-                                disabled={actionSaving}
-                                onClick={() => setReopenRequestId(requestId)}
-                              >
-                                Reopen
-                              </button>
-                              <button
-                                type="button"
-                                className="kfc-btn"
-                                disabled={actionSaving}
-                                onClick={() => openVerifyConfirm(requestId)}
-                              >
-                                Verify
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
+                          <div className="flex flex-wrap gap-1.5 justify-center">
+                            <button
+                              type="button"
+                              title="View"
+                              className="kfc-btn-outline p-1.5 rounded-md"
+                              onClick={() => openView(row)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {rowStatus === "Repaired" && requestId > 0 && (
+                              <>
+                                <button
+                                  type="button"
+                                  className="kfc-btn-outline"
+                                  disabled={actionSaving}
+                                  onClick={() => setReopenRequestId(requestId)}
+                                >
+                                  Reopen
+                                </button>
+                                <button
+                                  type="button"
+                                  className="kfc-btn"
+                                  disabled={actionSaving}
+                                  onClick={() => openVerifyConfirm(requestId)}
+                                >
+                                  Verify
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -498,6 +605,27 @@ const BranchComplaint: React.FC = () => {
               </button>
             </div>
           </div>
+        </InventoryModal>
+      )}
+
+      {viewOpen && (
+        <InventoryModal
+          title={`Complaint #${viewRequestId ?? ""}`}
+          onClose={() => setViewOpen(false)}
+          wide
+        >
+          {viewLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+            </div>
+          ) : (
+            <MaintenanceReadOnlyView
+              detail={viewDetail}
+              history={viewHistory}
+              branchName={branchName}
+              actionByName={actionByName}
+            />
+          )}
         </InventoryModal>
       )}
     </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -25,6 +25,15 @@ import {
 
 type ActionKind = "assign" | "start" | "complete" | "close" | null;
 
+type MaintenanceDetailProps = {
+  maintenanceRequestId?: number;
+  mode?: "page" | "modal";
+  onClose?: () => void;
+  onUpdated?: () => void;
+};
+
+const LIST_PATH = "/inventory/maintenanceComplaints";
+
 const ACTIVE_ASSIGN_COUNT_STATUSES = new Set([
   "Assigned",
   "InProgress",
@@ -36,10 +45,21 @@ const ACTIVE_ASSIGN_COUNT_STATUSES = new Set([
 const displayUserName = (u: any) =>
   u.userName ?? u.username ?? u.fullName ?? u.Name ?? `User ${u.userID ?? u.userId ?? u.id}`;
 
-const MaintenanceDetail: React.FC = () => {
+const MaintenanceDetail: React.FC<MaintenanceDetailProps> = ({
+  maintenanceRequestId,
+  mode = "page",
+  onClose,
+  onUpdated,
+}) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const requestId = Number(id);
+  const isModal = mode === "modal";
+  const requestId = Number(
+    maintenanceRequestId !== undefined && maintenanceRequestId !== null
+      ? maintenanceRequestId
+      : id
+  );
+  const requestSeq = useRef(0);
 
   const [detail, setDetail] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
@@ -58,6 +78,26 @@ const MaintenanceDetail: React.FC = () => {
   const [actualCost, setActualCost] = useState("");
   const [actionImage, setActionImage] = useState<File | null>(null);
 
+  const handleBack = () => {
+    if (isModal) {
+      onClose?.();
+      return;
+    }
+    navigate(LIST_PATH);
+  };
+
+  const resetActionForm = () => {
+    setActionKind(null);
+    setComments("");
+    setResolution("");
+    setActualCost("");
+    setAssignedTo("");
+    setJobTimeHours("");
+    setCustomJobTime("");
+    setUsers([]);
+    setActionImage(null);
+  };
+
   const branchName = (branchId?: number | null) => {
     if (!branchId) return "-";
     return branches.find((b) => b.id === branchId)?.name || `Branch ${branchId}`;
@@ -71,11 +111,14 @@ const MaintenanceDetail: React.FC = () => {
 
   const loadDetail = async () => {
     if (!requestId || requestId <= 0) return;
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const detailRes = await getMaintenanceById(requestId);
+      if (seq !== requestSeq.current) return;
       setDetail(detailRes.data || null);
     } catch (error: any) {
+      if (seq !== requestSeq.current) return;
       toast({
         title: "Error",
         description: apiErrorMessage(error, "Failed to load maintenance request."),
@@ -89,8 +132,10 @@ const MaintenanceDetail: React.FC = () => {
 
     try {
       const historyRes = await getMaintenanceHistory(requestId);
+      if (seq !== requestSeq.current) return;
       setHistory(Array.isArray(historyRes.data) ? historyRes.data : []);
     } catch (error: any) {
+      if (seq !== requestSeq.current) return;
       toast({
         title: "Error",
         description: apiErrorMessage(error, "Failed to load maintenance history."),
@@ -98,7 +143,7 @@ const MaintenanceDetail: React.FC = () => {
       });
       setHistory([]);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   };
 
@@ -134,7 +179,13 @@ const MaintenanceDetail: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    setDetail(null);
+    setHistory([]);
+    resetActionForm();
     loadDetail();
+    return () => {
+      requestSeq.current += 1;
+    };
   }, [requestId]);
 
   const openAction = async (kind: ActionKind) => {
@@ -296,6 +347,7 @@ const MaintenanceDetail: React.FC = () => {
       setActionKind(null);
       setActionImage(null);
       await loadDetail();
+      onUpdated?.();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -323,26 +375,30 @@ const MaintenanceDetail: React.FC = () => {
 
   if (!requestId || requestId <= 0) {
     return (
-      <div className="p-4">
+      <div className={isModal ? "space-y-3" : "p-4"}>
         <p className="text-gray-600">Invalid maintenance request.</p>
-        <button type="button" className="kfc-btn mt-3" onClick={() => navigate("/inventory/maintenance")}>
-          Back to list
+        <button type="button" className="kfc-btn mt-3" onClick={handleBack}>
+          {isModal ? "Close" : "Back to list"}
         </button>
       </div>
     );
   }
 
   return (
-    <div className="p-4 space-y-4">
+    <div className={isModal ? "space-y-4" : "p-4 space-y-4"}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Link to="/inventory/maintenance" className="kfc-btn-outline p-2 rounded-md">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <h1 className="text-xl font-semibold text-[#bc3342]">
-            Maintenance Request #{requestId}
-          </h1>
-        </div>
+        {!isModal ? (
+          <div className="flex items-center gap-3">
+            <Link to={LIST_PATH} className="kfc-btn-outline p-2 rounded-md">
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <h1 className="text-xl font-semibold text-[#bc3342]">
+              Maintenance Request #{requestId}
+            </h1>
+          </div>
+        ) : (
+          <div />
+        )}
         <button type="button" className="kfc-btn-outline" onClick={loadDetail} disabled={loading}>
           Refresh
         </button>

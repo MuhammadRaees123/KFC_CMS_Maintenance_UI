@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Trash2, Loader2, RefreshCcw } from "lucide-react";
 import {
@@ -109,6 +110,7 @@ const Users: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [search, setSearch] = useState("");
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [activeTab, setActiveTab] = useState<"grid" | "form">("grid");
 
   const lookupName = (list: LookupItem[], id: unknown) => {
     const num = Number(id);
@@ -207,6 +209,11 @@ const Users: React.FC = () => {
     setIsEditing(false);
   };
 
+  const handleCancel = () => {
+    resetForm();
+    setActiveTab("grid");
+  };
+
   const handleEdit = (row: UserRow) => {
     const accessType = String(
       pickField(row, "access_Type", "Access_Type") || "",
@@ -235,7 +242,7 @@ const Users: React.FC = () => {
       email: String(pickField(row, "email") || ""),
     });
     setIsEditing(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setActiveTab("form");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -296,6 +303,7 @@ const Users: React.FC = () => {
       });
       resetForm();
       fetchUsers();
+      setActiveTab("grid");
     } catch (error: unknown) {
       toast({
         title: "Error",
@@ -321,7 +329,10 @@ const Users: React.FC = () => {
         title: "Deleted",
         description: "User deleted successfully.",
       });
-      if (formData.id === id) resetForm();
+      if (formData.id === id) {
+        resetForm();
+        setActiveTab("grid");
+      }
       fetchUsers();
     } catch (error: unknown) {
       toast({
@@ -349,265 +360,280 @@ const Users: React.FC = () => {
         </button>
       </div>
 
-      <div className="kfc-card">
-        <div className="kfc-card-header">
-          {isEditing ? "Edit User" : "Add User"}
-        </div>
-        <form onSubmit={handleSubmit} className="kfc-form p-4">
-          <div>
-            <label className="kfc-label">Name</label>
-            <input
-              name="Name"
-              value={formData.Name}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            />
-          </div>
-          <div>
-            <label className="kfc-label">UserName</label>
-            <input
-              name="UserName"
-              value={formData.UserName}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Password</label>
-            <input
-              type="password"
-              name="Password"
-              value={formData.Password}
-              onChange={handleChange}
-              className="kfc-input"
-              placeholder={
-                isEditing ? "Leave blank to keep current password" : ""
-              }
-              required={!isEditing}
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Access Type</label>
-            <select
-              name="RoleId"
-              value={formData.RoleId}
-              onChange={handleAccessTypeChange}
-              className="kfc-input"  
-              required
-            >
-              <option value="">Select Access Type</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.name || role.access_Type}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Branch</label>
-            <select
-              name="Branch"
-              value={formData.Branch}
-              onChange={handleChange}
-              className="kfc-input"
-            >
-              <option value="">Select Branch</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Region</label>
-            <select
-              name="regionID"
-              value={formData.regionID}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            >
-              <option value="">Select Region</option>
-              {regions.map((region) => (
-                <option key={region.id} value={region.id}>
-                  {region.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Designation</label>
-            <input
-              name="Designation"
-              value={formData.Designation}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Cell Number</label>
-            <input
-              name="CellNumber"
-              value={formData.CellNumber}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div className="col-span-full">
-            <label className="kfc-label">Address</label>
-            <textarea
-              name="Address"
-              value={formData.Address}
-              onChange={handleChange}
-              className="kfc-input min-h-[70px]"
-            />
-          </div>
-          <div className="col-span-full flex justify-end gap-2 mt-2">
-            {isEditing && (
-              <button
-                type="button"
-                className="kfc-btn-outline"
-                onClick={resetForm}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-            )}
-            <button type="submit" className="kfc-btn" disabled={saving}>
-              {saving ? "Saving..." : isEditing ? "Update User" : "Save User"}
-            </button>
-          </div>
-        </form>
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "grid" | "form")}
+        className="w-full"
+      >
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="grid">Grid</TabsTrigger>
+          <TabsTrigger value="form">Create Form</TabsTrigger>
+        </TabsList>
 
-      <div className="kfc-card">
-        <div className="kfc-card-header flex items-center justify-between gap-3">
-          <span>Users</span>
-          <input
-            className="kfc-input max-w-xs"
-            placeholder="Search users..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="p-3 overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+        <TabsContent value="grid">
+          <div className="kfc-card">
+            <div className="kfc-card-header flex items-center justify-between gap-3">
+              <span>Users</span>
+              <input
+                className="kfc-input max-w-xs"
+                placeholder="Search users..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
-          ) : (
-            <table className="w-full table-fixed border text-sm">
-              <thead className="bg-[#fff6f6] text-[#bc3342]">
-                <tr>
-                  <th className="border px-3 py-2 text-left">Name</th>
-                  <th className="border px-3 py-2 text-left w-[140px]">
-                    UserName
-                  </th>
-                  <th className="border px-3 py-2 text-left">Access Type</th>
-                  <th className="border px-3 py-2 text-left">Branch</th>
-                  <th className="border px-3 py-2 text-left">Region</th>
-                  <th className="border px-3 py-2 text-left">Designation</th>
-                  <th className="border px-3 py-2 text-left">Cell Number</th>
-                  <th className="border px-3 py-2 text-left w-[200px]">
-                    Email
-                  </th>
-                  <th className="border px-3 py-2 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length > 0 ? (
-                  filtered.map((row, idx) => {
-                    const id = Number(pickField<number>(row, "id") ?? idx);
-                    return (
-                      <tr key={id} className="hover:bg-gray-50">
-                        <td className="border px-3 py-1.5 font-medium">
-                          {String(pickField(row, "name", "Name") || "-")}
-                        </td>
-                        <td className="border px-3 py-1.5 w-[140px] max-w-[140px] whitespace-normal break-all">
-                          {String(
-                            pickField(row, "userName", "UserName") || "-",
-                          )}
-                        </td>
-                        <td className="border px-3 py-1.5 text-gray-600">
-                          {String(
-                            pickField(row, "access_Type", "Access_Type") || "-",
-                          )}
-                        </td>
-                        <td className="border px-3 py-1.5 text-gray-600">
-                          {lookupName(
-                            branches,
-                            pickField(row, "branch", "Branch"),
-                          )}
-                        </td>
-                        <td className="border px-3 py-1.5 text-gray-600">
-                          {lookupName(
-                            regions,
-                            pickField(row, "regionID", "regionId"),
-                          )}
-                        </td>
-                        <td className="border px-3 py-1.5 text-gray-600">
-                          {String(
-                            pickField(row, "designation", "Designation") || "-",
-                          )}
-                        </td>
-                        <td className="border px-3 py-1.5 text-gray-600">
-                          {String(
-                            pickField(row, "cellNumber", "CellNumber") || "-",
-                          )}
-                        </td>
-                        <td className="border px-3 py-1.5 text-gray-600 w-[200px] max-w-[200px] whitespace-normal break-all">
-                          {String(pickField(row, "email") || "-")}
-                        </td>
-                        <td className="border px-3 py-1.5 text-center space-x-2">
-                          <button
-                            type="button"
-                            title="Edit"
-                            onClick={() => handleEdit(row)}
-                            className="kfc-btn-outline p-1.5 rounded-md hover:border-[#bc3342] hover:text-[#bc3342]"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete"
-                            disabled={deletingId === id}
-                            onClick={() => handleDelete(id)}
-                            className="kfc-btn p-1.5 rounded-md bg-[#bc3342] hover:bg-[#a82d3a] disabled:opacity-50"
-                          >
-                            <Trash2 className="w-4 h-4 text-white" />
-                          </button>
+            <div className="p-3 overflow-x-auto">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+                </div>
+              ) : (
+                <table className="w-full table-fixed border text-sm">
+                  <thead className="bg-[#fff6f6] text-[#bc3342]">
+                    <tr>
+                      <th className="border px-3 py-2 text-left">Name</th>
+                      <th className="border px-3 py-2 text-left w-[140px]">
+                        UserName
+                      </th>
+                      <th className="border px-3 py-2 text-left">Access Type</th>
+                      <th className="border px-3 py-2 text-left">Branch</th>
+                      <th className="border px-3 py-2 text-left">Region</th>
+                      <th className="border px-3 py-2 text-left">Designation</th>
+                      <th className="border px-3 py-2 text-left">Cell Number</th>
+                      <th className="border px-3 py-2 text-left w-[200px]">
+                        Email
+                      </th>
+                      <th className="border px-3 py-2 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length > 0 ? (
+                      filtered.map((row, idx) => {
+                        const id = Number(pickField<number>(row, "id") ?? idx);
+                        return (
+                          <tr key={id} className="hover:bg-gray-50">
+                            <td className="border px-3 py-1.5 font-medium">
+                              {String(pickField(row, "name", "Name") || "-")}
+                            </td>
+                            <td className="border px-3 py-1.5 w-[140px] max-w-[140px] whitespace-normal break-all">
+                              {String(
+                                pickField(row, "userName", "UserName") || "-",
+                              )}
+                            </td>
+                            <td className="border px-3 py-1.5 text-gray-600">
+                              {String(
+                                pickField(row, "access_Type", "Access_Type") || "-",
+                              )}
+                            </td>
+                            <td className="border px-3 py-1.5 text-gray-600">
+                              {lookupName(
+                                branches,
+                                pickField(row, "branch", "Branch"),
+                              )}
+                            </td>
+                            <td className="border px-3 py-1.5 text-gray-600">
+                              {lookupName(
+                                regions,
+                                pickField(row, "regionID", "regionId"),
+                              )}
+                            </td>
+                            <td className="border px-3 py-1.5 text-gray-600">
+                              {String(
+                                pickField(row, "designation", "Designation") || "-",
+                              )}
+                            </td>
+                            <td className="border px-3 py-1.5 text-gray-600">
+                              {String(
+                                pickField(row, "cellNumber", "CellNumber") || "-",
+                              )}
+                            </td>
+                            <td className="border px-3 py-1.5 text-gray-600 w-[200px] max-w-[200px] whitespace-normal break-all">
+                              {String(pickField(row, "email") || "-")}
+                            </td>
+                            <td className="border px-3 py-1.5 text-center space-x-2">
+                              <button
+                                type="button"
+                                title="Edit"
+                                onClick={() => handleEdit(row)}
+                                className="kfc-btn-outline p-1.5 rounded-md hover:border-[#bc3342] hover:text-[#bc3342]"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete"
+                                disabled={deletingId === id}
+                                onClick={() => handleDelete(id)}
+                                className="kfc-btn p-1.5 rounded-md bg-[#bc3342] hover:bg-[#a82d3a] disabled:opacity-50"
+                              >
+                                <Trash2 className="w-4 h-4 text-white" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="border px-3 py-4 text-center text-gray-500"
+                        >
+                          No users found.
                         </td>
                       </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="border px-3 py-4 text-center text-gray-500"
-                    >
-                      No users found.
-                    </td>
-                  </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="form">
+          <div className="kfc-card">
+            <div className="kfc-card-header">
+              {isEditing ? "Edit User" : "Add User"}
+            </div>
+            <form onSubmit={handleSubmit} className="kfc-form p-4">
+              <div>
+                <label className="kfc-label">Name</label>
+                <input
+                  name="Name"
+                  value={formData.Name}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="kfc-label">UserName</label>
+                <input
+                  name="UserName"
+                  value={formData.UserName}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Password</label>
+                <input
+                  type="password"
+                  name="Password"
+                  value={formData.Password}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  placeholder={
+                    isEditing ? "Leave blank to keep current password" : ""
+                  }
+                  required={!isEditing}
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Access Type</label>
+                <select
+                  name="RoleId"
+                  value={formData.RoleId}
+                  onChange={handleAccessTypeChange}
+                  className="kfc-input"
+                  required
+                >
+                  <option value="">Select Access Type</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name || role.access_Type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="kfc-label">Branch</label>
+                <select
+                  name="Branch"
+                  value={formData.Branch}
+                  onChange={handleChange}
+                  className="kfc-input"
+                >
+                  <option value="">Select Branch</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="kfc-label">Region</label>
+                <select
+                  name="regionID"
+                  value={formData.regionID}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  required
+                >
+                  <option value="">Select Region</option>
+                  {regions.map((region) => (
+                    <option key={region.id} value={region.id}>
+                      {region.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="kfc-label">Designation</label>
+                <input
+                  name="Designation"
+                  value={formData.Designation}
+                  onChange={handleChange}
+                  className="kfc-input"
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Cell Number</label>
+                <input
+                  name="CellNumber"
+                  value={formData.CellNumber}
+                  onChange={handleChange}
+                  className="kfc-input"
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="kfc-input"
+                />
+              </div>
+              <div className="col-span-full">
+                <label className="kfc-label">Address</label>
+                <textarea
+                  name="Address"
+                  value={formData.Address}
+                  onChange={handleChange}
+                  className="kfc-input min-h-[70px]"
+                />
+              </div>
+              <div className="col-span-full flex justify-end gap-2 mt-2">
+                {isEditing && (
+                  <button
+                    type="button"
+                    className="kfc-btn-outline"
+                    onClick={handleCancel}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
                 )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+                <button type="submit" className="kfc-btn" disabled={saving}>
+                  {saving ? "Saving..." : isEditing ? "Update User" : "Save User"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

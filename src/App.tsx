@@ -223,7 +223,7 @@ const App = () => {
               <Route path="/inventory/branch-inventory-analytics" element={<InventoryBranchInventoryAnalytics />} />
               <Route path="/inventory/maintenanceComplaints" element={<InventoryMaintenance />} />
               <Route path="/inventory/maintenance/:id" element={<InventoryMaintenanceDetail />} />
-              <Route path="/inventory/branch-agent-tasks" element={<InventoryBranchAgentTasks />} />
+              <Route path="/inventory/branch-technician-tasks" element={<InventoryBranchAgentTasks />} />
               <Route path="/inventory/technician-dashboard" element={<InventoryTechnicianDashboard />} />
               <Route path="/inventory/trade" element={<InventoryTrade />} />
               <Route path="/inventory/technician-trade" element={<InventoryTechnicianTrade />} />

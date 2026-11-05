@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { Eye, Loader2, RefreshCcw } from "lucide-react";
 import {
@@ -7,7 +6,9 @@ import {
   getInventoryCategories,
   getMaintenanceList,
 } from "@/services/api";
+import InventoryModal from "./components/InventoryModal";
 import StatusBadge from "./components/StatusBadge";
+import MaintenanceDetail from "./MaintenanceDetail";
 import {
   apiErrorMessage,
   calculateRemainingJobTime,
@@ -39,12 +40,12 @@ const pageList = (current: number, total: number): Array<number | "ellipsis"> =>
 };
 
 const Maintenance: React.FC = () => {
-  const navigate = useNavigate();
   const requestSeq = useRef(0);
   const [rows, setRows] = useState<any[]>([]);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
 
   const [branchId, setBranchId] = useState("");
   const [status, setStatus] = useState("");
@@ -172,7 +173,7 @@ const Maintenance: React.FC = () => {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-xl font-semibold text-[#bc3342]">Maintenance Requests</h1>
+        <h1 className="text-xl font-semibold text-[#bc3342]">Maintenance Complaints</h1>
         <div className="flex gap-2">
           <button
             type="button"
@@ -360,7 +361,7 @@ const Maintenance: React.FC = () => {
                           title="View"
                           className="kfc-btn-outline p-1.5 rounded-md"
                           onClick={() =>
-                            navigate(`/inventory/maintenance/${row.maintenanceRequestId}`)
+                            setSelectedRequestId(Number(row.maintenanceRequestId))
                           }
                         >
                           <Eye className="w-4 h-4" />
@@ -425,6 +426,22 @@ const Maintenance: React.FC = () => {
           </div>
         )}
       </div>
+
+      {selectedRequestId != null && (
+        <InventoryModal
+          title={`Maintenance Request #${selectedRequestId}`}
+          onClose={() => setSelectedRequestId(null)}
+          wide
+        >
+          <MaintenanceDetail
+            key={selectedRequestId}
+            maintenanceRequestId={selectedRequestId}
+            mode="modal"
+            onClose={() => setSelectedRequestId(null)}
+            onUpdated={() => fetchList(pageNumber, sortDirection)}
+          />
+        </InventoryModal>
+      )}
     </div>
   );
 };

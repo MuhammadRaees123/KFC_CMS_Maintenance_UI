@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
 import { Pencil, Loader2, RefreshCcw } from "lucide-react";
 import {
@@ -33,6 +34,7 @@ const Categories: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [search, setSearch] = useState("");
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [activeTab, setActiveTab] = useState<"grid" | "form">("grid");
 
   const fetchCategories = async () => {
     setLoading(true);
@@ -77,6 +79,11 @@ const Categories: React.FC = () => {
     setIsEditing(false);
   };
 
+  const handleCancel = () => {
+    resetForm();
+    setActiveTab("grid");
+  };
+
   const handleEdit = (row: CategoryRow) => {
     setFormData({
       InventoryCategoryId: Number(
@@ -88,7 +95,7 @@ const Categories: React.FC = () => {
       IsActive: !!row.isActive,
     });
     setIsEditing(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setActiveTab("form");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,6 +124,7 @@ const Categories: React.FC = () => {
       });
       resetForm();
       fetchCategories();
+      setActiveTab("grid");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -143,139 +151,154 @@ const Categories: React.FC = () => {
         </button>
       </div>
 
-      <div className="kfc-card">
-        <div className="kfc-card-header">
-          {isEditing ? "Edit Category" : "Add Category"}
-        </div>
-        <form onSubmit={handleSubmit} className="kfc-form p-4">
-          <div>
-            <label className="kfc-label">Category Code</label>
-            <input
-              name="CategoryCode"
-              value={formData.CategoryCode}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Category Name</label>
-            <input
-              name="CategoryName"
-              value={formData.CategoryName}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            />
-          </div>
-          <div className="col-span-full">
-            <label className="kfc-label">Description</label>
-            <textarea
-              name="Description"
-              value={formData.Description}
-              onChange={handleChange}
-              className="kfc-input min-h-[70px]"
-            />
-          </div>
-          <div className="kfc-switch">
-            <span>Active</span>
-            <Switch
-              checked={formData.IsActive}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, IsActive: checked }))
-              }
-            />
-          </div>
-          <div className="col-span-full flex justify-end gap-2 mt-2">
-            {isEditing && (
-              <button type="button" className="kfc-btn-outline" onClick={resetForm}>
-                Cancel
-              </button>
-            )}
-            <button type="submit" className="kfc-btn" disabled={saving}>
-              {saving ? "Saving..." : isEditing ? "Update Category" : "Save Category"}
-            </button>
-          </div>
-        </form>
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "grid" | "form")}
+        className="w-full"
+      >
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="grid">Grid</TabsTrigger>
+          <TabsTrigger value="form">Create Form</TabsTrigger>
+        </TabsList>
 
-      <div className="kfc-card">
-        <div className="kfc-card-header flex items-center justify-between gap-3">
-          <span>Categories</span>
-          <input
-            className="kfc-input max-w-xs"
-            placeholder="Search categories..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="p-3 overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+        <TabsContent value="grid">
+          <div className="kfc-card">
+            <div className="kfc-card-header flex items-center justify-between gap-3">
+              <span>Categories</span>
+              <input
+                className="kfc-input max-w-xs"
+                placeholder="Search categories..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
-          ) : (
-            <table className="min-w-full border text-sm">
-              <thead className="bg-[#fff6f6] text-[#bc3342]">
-                <tr>
-                  <th className="border px-3 py-2 text-left">Code</th>
-                  <th className="border px-3 py-2 text-left">Name</th>
-                  <th className="border px-3 py-2 text-left">Description</th>
-                  <th className="border px-3 py-2 text-center">Active</th>
-                  <th className="border px-3 py-2 text-left">Created</th>
-                  <th className="border px-3 py-2 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length > 0 ? (
-                  filtered.map((row, idx) => (
-                    <tr
-                      key={
-                        pickField<string | number>(
-                          row,
-                          "inventoryCategoryId",
-                          "InventoryCategoryId"
-                        ) ?? idx
-                      }
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="border px-3 py-1.5">{row.categoryCode}</td>
-                      <td className="border px-3 py-1.5 font-medium">{row.categoryName}</td>
-                      <td className="border px-3 py-1.5 text-gray-600">
-                        {row.description || "-"}
-                      </td>
-                      <td className="border px-3 py-1.5 text-center">
-                        {row.isActive ? (
-                          <span className="text-green-600 font-semibold">✔</span>
-                        ) : (
-                          <span className="text-red-500 font-semibold">✖</span>
-                        )}
-                      </td>
-                      <td className="border px-3 py-1.5">{formatDateTime(row.createdDate)}</td>
-                      <td className="border px-3 py-1.5 text-center">
-                        <button
-                          type="button"
-                          title="Edit"
-                          onClick={() => handleEdit(row)}
-                          className="kfc-btn-outline p-1.5 rounded-md hover:border-[#bc3342] hover:text-[#bc3342]"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                      </td>
+            <div className="p-3 overflow-x-auto">
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+                </div>
+              ) : (
+                <table className="min-w-full border text-sm">
+                  <thead className="bg-[#fff6f6] text-[#bc3342]">
+                    <tr>
+                      <th className="border px-3 py-2 text-left">Code</th>
+                      <th className="border px-3 py-2 text-left">Name</th>
+                      <th className="border px-3 py-2 text-left">Description</th>
+                      <th className="border px-3 py-2 text-center">Active</th>
+                      <th className="border px-3 py-2 text-left">Created</th>
+                      <th className="border px-3 py-2 text-center">Actions</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="border px-3 py-4 text-center text-gray-500">
-                      No categories found.
-                    </td>
-                  </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.length > 0 ? (
+                      filtered.map((row, idx) => (
+                        <tr
+                          key={
+                            pickField<string | number>(
+                              row,
+                              "inventoryCategoryId",
+                              "InventoryCategoryId"
+                            ) ?? idx
+                          }
+                          className="hover:bg-gray-50"
+                        >
+                          <td className="border px-3 py-1.5">{row.categoryCode}</td>
+                          <td className="border px-3 py-1.5 font-medium">{row.categoryName}</td>
+                          <td className="border px-3 py-1.5 text-gray-600">
+                            {row.description || "-"}
+                          </td>
+                          <td className="border px-3 py-1.5 text-center">
+                            {row.isActive ? (
+                              <span className="text-green-600 font-semibold">✔</span>
+                            ) : (
+                              <span className="text-red-500 font-semibold">✖</span>
+                            )}
+                          </td>
+                          <td className="border px-3 py-1.5">{formatDateTime(row.createdDate)}</td>
+                          <td className="border px-3 py-1.5 text-center">
+                            <button
+                              type="button"
+                              title="Edit"
+                              onClick={() => handleEdit(row)}
+                              className="kfc-btn-outline p-1.5 rounded-md hover:border-[#bc3342] hover:text-[#bc3342]"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="border px-3 py-4 text-center text-gray-500">
+                          No categories found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="form">
+          <div className="kfc-card">
+            <div className="kfc-card-header">
+              {isEditing ? "Edit Category" : "Add Category"}
+            </div>
+            <form onSubmit={handleSubmit} className="kfc-form p-4">
+              <div>
+                <label className="kfc-label">Category Code</label>
+                <input
+                  name="CategoryCode"
+                  value={formData.CategoryCode}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="kfc-label">Category Name</label>
+                <input
+                  name="CategoryName"
+                  value={formData.CategoryName}
+                  onChange={handleChange}
+                  className="kfc-input"
+                  required
+                />
+              </div>
+              <div className="col-span-full">
+                <label className="kfc-label">Description</label>
+                <textarea
+                  name="Description"
+                  value={formData.Description}
+                  onChange={handleChange}
+                  className="kfc-input min-h-[70px]"
+                />
+              </div>
+              <div className="kfc-switch">
+                <span>Active</span>
+                <Switch
+                  checked={formData.IsActive}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({ ...prev, IsActive: checked }))
+                  }
+                />
+              </div>
+              <div className="col-span-full flex justify-end gap-2 mt-2">
+                {isEditing && (
+                  <button type="button" className="kfc-btn-outline" onClick={handleCancel}>
+                    Cancel
+                  </button>
                 )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+                <button type="submit" className="kfc-btn" disabled={saving}>
+                  {saving ? "Saving..." : isEditing ? "Update Category" : "Save Category"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
