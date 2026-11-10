@@ -10,6 +10,7 @@ import {
   getRoles,
   getBranchesForDashboard,
   getRegionsForDashboard,
+  saveBranchAccess,
 } from "@/services/api";
 
 type UserRow = Record<string, unknown>;
@@ -110,6 +111,7 @@ const Users: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [search, setSearch] = useState("");
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState<"grid" | "form">("grid");
 
   const lookupName = (list: LookupItem[], id: unknown) => {
@@ -206,12 +208,21 @@ const Users: React.FC = () => {
 
   const resetForm = () => {
     setFormData({ ...emptyForm });
+    setSelectedBranchIds([]);
     setIsEditing(false);
   };
 
   const handleCancel = () => {
     resetForm();
     setActiveTab("grid");
+  };
+
+  const toggleSelectedBranch = (branchId: number) => {
+    setSelectedBranchIds((prev) =>
+      prev.includes(branchId)
+        ? prev.filter((id) => id !== branchId)
+        : [...prev, branchId],
+    );
   };
 
   const handleEdit = (row: UserRow) => {
@@ -241,6 +252,7 @@ const Users: React.FC = () => {
       regionID: String(pickField(row, "regionID", "regionId") || ""),
       email: String(pickField(row, "email") || ""),
     });
+    setSelectedBranchIds([]);
     setIsEditing(true);
     setActiveTab("form");
   };
@@ -274,12 +286,18 @@ const Users: React.FC = () => {
     if (saving) return;
     setSaving(true);
     try {
+      const branchForUser = isEditing
+        ? formData.Branch
+          ? Number(formData.Branch)
+          : 0
+        : selectedBranchIds[0] ?? 0;
+
       const payload = {
         Name: formData.Name.trim(),
         UserName: formData.UserName.trim(),
         Password: formData.Password.trim() || null,
         Access_Type: formData.Access_Type.trim(),
-        Branch: formData.Branch ? Number(formData.Branch) : 0,
+        Branch: branchForUser,
         Address: formData.Address.trim() || null,
         Designation: formData.Designation.trim() || null,
         CellNumber: formData.CellNumber.trim() || null,
@@ -289,16 +307,78 @@ const Users: React.FC = () => {
         email: formData.email.trim() || null,
       };
 
-      const res = isEditing
-        ? await updateUser(formData.id, payload)
-        : await addUser({ ...payload, Password: formData.Password.trim() });
+      if (isEditing) {
+        const res = await updateUser(formData.id, payload);
+        toast({
+          title: "Success",
+          description: res.data?.message || "User updated successfully.",
+        });
+        resetForm();
+        fetchUsers();
+        setActiveTab("grid");
+        return;
+      }
+
+      const createdUserName = formData.UserName.trim();
+      const branchesToAssign = [...selectedBranchIds];
+      const roleIdForAccess = Number(formData.RoleId);
+
+      const res = await addUser({
+        ...payload,
+        Password: formData.Password.trim(),
+      });
+
+      const newUserId = Number(
+        pickField(res.data?.data, "id", "Id") || 0,
+      );
+      const shouldAssignBranches =
+        branchesToAssign.length > 0 && roleIdForAccess > 0;
+
+      if (shouldAssignBranches && newUserId <= 0) {
+        toast({
+          title: "User created",
+          description: `Account "${createdUserName}" was created, but branch access could not be assigned (missing user id). Assign branches in Branch Access Management.`,
+          variant: "destructive",
+        });
+        resetForm();
+        fetchUsers();
+        setActiveTab("grid");
+        return;
+      }
+
+      if (shouldAssignBranches) {
+        try {
+          await saveBranchAccess(
+            branchesToAssign.map((branchId) => ({
+              RoleID: roleIdForAccess,
+              UserID: newUserId,
+              BranchID: branchId,
+              IsActive: true,
+              CreatedBy: 1,
+            })),
+          );
+        } catch (accessError: unknown) {
+          toast({
+            title: "User created",
+            description: `Account "${createdUserName}" was created, but branch access was not fully assigned. ${apiErrorMessage(
+              accessError,
+              "Assign branches manually in Branch Access Management.",
+            )}`,
+            variant: "destructive",
+          });
+          resetForm();
+          fetchUsers();
+          setActiveTab("grid");
+          return;
+        }
+      }
 
       toast({
         title: "Success",
         description:
           res.data?.message ||
-          (isEditing
-            ? "User updated successfully."
+          (shouldAssignBranches
+            ? "User saved and branch access assigned successfully."
             : "User saved successfully."),
       });
       resetForm();
@@ -545,21 +625,62 @@ const Users: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="kfc-label">Branch</label>
-                <select
-                  name="Branch"
-                  value={formData.Branch}
-                  onChange={handleChange}
-                  className="kfc-input"
-                >
-                  <option value="">Select Branch</option>
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
+              <div className={isEditing ? undefined : "col-span-full"}>
+                <label className="kfc-label">
+                  {isEditing ? "Branch" : "Branches"}
+                </label>
+                {isEditing ? (
+                  <select
+                    name="Branch"
+                    value={formData.Branch}
+                    onChange={handleChange}
+                    className="kfc-input"
+                  >
+                    <option value="">Select Branch</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-1 bg-white">
+                    {branches.length === 0 ? (
+                      <p className="text-sm text-gray-500 px-1 py-2">
+                        No branches available.
+                      </p>
+                    ) : (
+                      branches.map((branch) => {
+                        const checked = selectedBranchIds.includes(branch.id);
+                        return (
+                          <label
+                            key={branch.id}
+                            className={`flex items-center justify-between gap-2 border rounded-md px-3 py-2 text-sm cursor-pointer transition ${
+                              checked
+                                ? "bg-[#fff5f6] border-[#bc3342]"
+                                : "bg-white hover:bg-gray-50"
+                            }`}
+                          >
+                            <span className="font-medium">{branch.name}</span>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleSelectedBranch(branch.id)}
+                              className="h-4 w-4 accent-[#bc3342]"
+                              disabled={saving}
+                            />
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+                {!isEditing && selectedBranchIds.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {selectedBranchIds.length} branch
+                    {selectedBranchIds.length === 1 ? "" : "es"} selected
+                  </p>
+                )}
               </div>
               <div>
                 <label className="kfc-label">Region</label>
