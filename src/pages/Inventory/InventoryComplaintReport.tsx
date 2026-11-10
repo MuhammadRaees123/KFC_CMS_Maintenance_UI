@@ -26,6 +26,14 @@ const PAGE_SIZE = 20;
 type SortDirection = "asc" | "desc";
 type MaintenanceRow = Record<string, unknown>;
 
+/** Format a Date as YYYY-MM-DD using local calendar components (avoids UTC shift). */
+const toLocalDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const resolveUserBranchId = (): number | null => {
   const parsed = Number(getCurrentUser()?.branchId);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -48,8 +56,15 @@ const InventoryComplaintReport: React.FC = () => {
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
   const [search, setSearch] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(() => {
+    const today = new Date();
+    return toLocalDateInputValue(
+      new Date(today.getFullYear(), today.getMonth(), 1),
+    );
+  });
+  const [toDate, setToDate] = useState(() =>
+    toLocalDateInputValue(new Date()),
+  );
   const [pageNumber, setPageNumber] = useState(1);
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [totalRecords, setTotalRecords] = useState(0);

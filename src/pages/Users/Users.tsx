@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Loader2, RefreshCcw } from "lucide-react";
+import { Pencil, Trash2, Loader2, RefreshCcw, Search } from "lucide-react";
 import {
   getUsers,
   addUser,
@@ -11,6 +11,9 @@ import {
   getBranchesForDashboard,
   getRegionsForDashboard,
   saveBranchAccess,
+  getInventoryCategories,
+  getTechnicianCategories,
+  replaceTechnicianCategories,
 } from "@/services/api";
 
 type UserRow = Record<string, unknown>;
@@ -100,6 +103,29 @@ function toRoles(list: unknown[]): RoleItem[] {
     .filter((item) => item.id > 0);
 }
 
+function toCategoryLookup(list: unknown[]): LookupItem[] {
+  return (Array.isArray(list) ? list : [])
+    .map((item) => {
+      const rec = item as Record<string, unknown>;
+      const id = Number(
+        rec.inventoryCategoryId ??
+          rec.InventoryCategoryId ??
+          rec.id ??
+          rec.Id ??
+          0,
+      );
+      const name = String(
+        rec.categoryName ?? rec.CategoryName ?? rec.name ?? rec.Name ?? "",
+      );
+      return { id, name };
+    })
+    .filter((item) => item.id > 0 && item.name);
+}
+
+function isTechnicianAccessType(accessType: string) {
+  return accessType.trim().toLowerCase() === "technician";
+}
+
 const Users: React.FC = () => {
   const [rows, setRows] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
@@ -112,7 +138,31 @@ const Users: React.FC = () => {
   const [search, setSearch] = useState("");
   const [formData, setFormData] = useState({ ...emptyForm });
   const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
+  const [branchSearch, setBranchSearch] = useState("");
+  const [categories, setCategories] = useState<LookupItem[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [wasTechnicianOnEdit, setWasTechnicianOnEdit] = useState(false);
   const [activeTab, setActiveTab] = useState<"grid" | "form">("grid");
+
+  const isTechnicianSelected = isTechnicianAccessType(formData.Access_Type);
+
+  const filteredBranches = useMemo(() => {
+    const q = branchSearch.trim().toLowerCase();
+    if (!q) return branches;
+    return branches.filter((branch) =>
+      branch.name.toLowerCase().includes(q),
+    );
+  }, [branches, branchSearch]);
+
+  const filteredCategories = useMemo(() => {
+    const q = categorySearch.trim().toLowerCase();
+    if (!q) return categories;
+    return categories.filter((category) =>
+      category.name.toLowerCase().includes(q),
+    );
+  }, [categories, categorySearch]);
 
   const lookupName = (list: LookupItem[], id: unknown) => {
     const num = Number(id);
@@ -122,16 +172,22 @@ const Users: React.FC = () => {
 
   const fetchLookups = async () => {
     try {
-      const [rolesRes, branchRes, regionRes] = await Promise.all([
+      const [rolesRes, branchRes, regionRes, categoryRes] = await Promise.all([
         getRoles(),
         getBranchesForDashboard(),
         getRegionsForDashboard(),
+        getInventoryCategories({ includeInactive: false }),
       ]);
       setRoles(toRoles(Array.isArray(rolesRes.data) ? rolesRes.data : []));
       setBranches(
         toLookup(Array.isArray(branchRes.data) ? branchRes.data : []),
       );
       setRegions(toLookup(Array.isArray(regionRes.data) ? regionRes.data : []));
+      setCategories(
+        toCategoryLookup(
+          Array.isArray(categoryRes.data) ? categoryRes.data : [],
+        ),
+      );
     } catch (error: unknown) {
       toast({
         title: "Error",
@@ -201,15 +257,30 @@ const Users: React.FC = () => {
       ...prev,
       RoleId: selectedId,
       Access_Type: accessType,
-      // RoleText: accessType,
       RoleText: roleText,
     }));
+    if (!isTechnicianAccessType(accessType)) {
+      setSelectedCategoryIds([]);
+      setCategorySearch("");
+    }
   };
 
   const resetForm = () => {
     setFormData({ ...emptyForm });
     setSelectedBranchIds([]);
+    setSelectedCategoryIds([]);
+    setBranchSearch("");
+    setCategorySearch("");
+    setWasTechnicianOnEdit(false);
     setIsEditing(false);
+  };
+
+  const toggleSelectedCategory = (categoryId: number) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId],
+    );
   };
 
   const handleCancel = () => {
@@ -225,7 +296,7 @@ const Users: React.FC = () => {
     );
   };
 
-  const handleEdit = (row: UserRow) => {
+  const handleEdit = async (row: UserRow) => {
     const accessType = String(
       pickField(row, "access_Type", "Access_Type") || "",
     );
@@ -237,8 +308,11 @@ const Users: React.FC = () => {
       if (match) roleId = String(match.id);
     }
 
+    const userId = Number(pickField<number>(row, "id") || 0);
+    const technicianOnEdit = isTechnicianAccessType(accessType);
+
     setFormData({
-      id: Number(pickField<number>(row, "id") || 0),
+      id: userId,
       Name: String(pickField(row, "name", "Name") || ""),
       UserName: String(pickField(row, "userName", "UserName") || ""),
       Password: "",
@@ -253,8 +327,41 @@ const Users: React.FC = () => {
       email: String(pickField(row, "email") || ""),
     });
     setSelectedBranchIds([]);
+    setSelectedCategoryIds([]);
+    setBranchSearch("");
+    setCategorySearch("");
+    setWasTechnicianOnEdit(technicianOnEdit);
     setIsEditing(true);
     setActiveTab("form");
+
+    if (technicianOnEdit && userId > 0) {
+      setLoadingCategories(true);
+      try {
+        const res = await getTechnicianCategories(userId);
+        const assigned = (Array.isArray(res.data) ? res.data : [])
+          .map((item: Record<string, unknown>) =>
+            Number(
+              item.inventoryCategoryId ??
+                item.InventoryCategoryId ??
+                item.id ??
+                0,
+            ),
+          )
+          .filter((id: number) => id > 0);
+        setSelectedCategoryIds(assigned);
+      } catch (error: unknown) {
+        toast({
+          title: "Warning",
+          description: apiErrorMessage(
+            error,
+            "Failed to load assigned item categories.",
+          ),
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingCategories(false);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -278,6 +385,17 @@ const Users: React.FC = () => {
       toast({
         title: "Validation",
         description: "Password is required for a new user.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const technicianSelected = isTechnicianAccessType(formData.Access_Type);
+    if (technicianSelected && selectedCategoryIds.length === 0) {
+      toast({
+        title: "Validation",
+        description:
+          "Select at least one Item Category for a Technician user.",
         variant: "destructive",
       });
       return;
@@ -309,10 +427,43 @@ const Users: React.FC = () => {
 
       if (isEditing) {
         const res = await updateUser(formData.id, payload);
-        toast({
-          title: "Success",
-          description: res.data?.message || "User updated successfully.",
-        });
+        let categoryError: string | null = null;
+
+        if (technicianSelected) {
+          try {
+            await replaceTechnicianCategories(
+              formData.id,
+              selectedCategoryIds,
+            );
+          } catch (catError: unknown) {
+            categoryError = apiErrorMessage(
+              catError,
+              "Category assignments were not saved.",
+            );
+          }
+        } else if (wasTechnicianOnEdit) {
+          try {
+            await replaceTechnicianCategories(formData.id, []);
+          } catch (catError: unknown) {
+            categoryError = apiErrorMessage(
+              catError,
+              "Previous category assignments could not be cleared.",
+            );
+          }
+        }
+
+        if (categoryError) {
+          toast({
+            title: "User updated",
+            description: `Account was updated, but item categories were not fully saved. ${categoryError}`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: res.data?.message || "User updated successfully.",
+          });
+        }
         resetForm();
         fetchUsers();
         setActiveTab("grid");
@@ -321,6 +472,7 @@ const Users: React.FC = () => {
 
       const createdUserName = formData.UserName.trim();
       const branchesToAssign = [...selectedBranchIds];
+      const categoriesToAssign = [...selectedCategoryIds];
       const roleIdForAccess = Number(formData.RoleId);
 
       const res = await addUser({
@@ -333,11 +485,16 @@ const Users: React.FC = () => {
       );
       const shouldAssignBranches =
         branchesToAssign.length > 0 && roleIdForAccess > 0;
+      const shouldAssignCategories =
+        technicianSelected && categoriesToAssign.length > 0;
 
-      if (shouldAssignBranches && newUserId <= 0) {
+      if (
+        (shouldAssignBranches || shouldAssignCategories) &&
+        newUserId <= 0
+      ) {
         toast({
           title: "User created",
-          description: `Account "${createdUserName}" was created, but branch access could not be assigned (missing user id). Assign branches in Branch Access Management.`,
+          description: `Account "${createdUserName}" was created, but follow-up assignments could not be saved (missing user id). Assign branches/categories manually.`,
           variant: "destructive",
         });
         resetForm();
@@ -345,6 +502,9 @@ const Users: React.FC = () => {
         setActiveTab("grid");
         return;
       }
+
+      let branchError: string | null = null;
+      let categoryError: string | null = null;
 
       if (shouldAssignBranches) {
         try {
@@ -358,27 +518,48 @@ const Users: React.FC = () => {
             })),
           );
         } catch (accessError: unknown) {
-          toast({
-            title: "User created",
-            description: `Account "${createdUserName}" was created, but branch access was not fully assigned. ${apiErrorMessage(
-              accessError,
-              "Assign branches manually in Branch Access Management.",
-            )}`,
-            variant: "destructive",
-          });
-          resetForm();
-          fetchUsers();
-          setActiveTab("grid");
-          return;
+          branchError = apiErrorMessage(
+            accessError,
+            "Assign branches manually in Branch Access Management.",
+          );
         }
+      }
+
+      if (shouldAssignCategories) {
+        try {
+          await replaceTechnicianCategories(newUserId, categoriesToAssign);
+        } catch (catError: unknown) {
+          categoryError = apiErrorMessage(
+            catError,
+            "Assign item categories by editing the user.",
+          );
+        }
+      }
+
+      if (branchError || categoryError) {
+        toast({
+          title: "User created",
+          description: [
+            `Account "${createdUserName}" was created.`,
+            branchError ? `Branch access: ${branchError}` : null,
+            categoryError ? `Categories: ${categoryError}` : null,
+          ]
+            .filter(Boolean)
+            .join(" "),
+          variant: "destructive",
+        });
+        resetForm();
+        fetchUsers();
+        setActiveTab("grid");
+        return;
       }
 
       toast({
         title: "Success",
         description:
           res.data?.message ||
-          (shouldAssignBranches
-            ? "User saved and branch access assigned successfully."
+          (shouldAssignBranches || shouldAssignCategories
+            ? "User saved with access assignments successfully."
             : "User saved successfully."),
       });
       resetForm();
@@ -644,35 +825,52 @@ const Users: React.FC = () => {
                     ))}
                   </select>
                 ) : (
-                  <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-1 bg-white">
-                    {branches.length === 0 ? (
-                      <p className="text-sm text-gray-500 px-1 py-2">
-                        No branches available.
-                      </p>
-                    ) : (
-                      branches.map((branch) => {
-                        const checked = selectedBranchIds.includes(branch.id);
-                        return (
-                          <label
-                            key={branch.id}
-                            className={`flex items-center justify-between gap-2 border rounded-md px-3 py-2 text-sm cursor-pointer transition ${
-                              checked
-                                ? "bg-[#fff5f6] border-[#bc3342]"
-                                : "bg-white hover:bg-gray-50"
-                            }`}
-                          >
-                            <span className="font-medium">{branch.name}</span>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleSelectedBranch(branch.id)}
-                              className="h-4 w-4 accent-[#bc3342]"
-                              disabled={saving}
-                            />
-                          </label>
-                        );
-                      })
-                    )}
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        className="kfc-input pl-9"
+                        placeholder="Search branches..."
+                        value={branchSearch}
+                        onChange={(e) => setBranchSearch(e.target.value)}
+                        disabled={saving}
+                      />
+                    </div>
+                    <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-1 bg-white">
+                      {branches.length === 0 ? (
+                        <p className="text-sm text-gray-500 px-1 py-2">
+                          No branches available.
+                        </p>
+                      ) : filteredBranches.length === 0 ? (
+                        <p className="text-sm text-gray-500 px-1 py-2">
+                          No branches match your search.
+                        </p>
+                      ) : (
+                        filteredBranches.map((branch) => {
+                          const checked = selectedBranchIds.includes(branch.id);
+                          return (
+                            <label
+                              key={branch.id}
+                              className={`flex items-center justify-between gap-2 border rounded-md px-3 py-2 text-sm cursor-pointer transition ${
+                                checked
+                                  ? "bg-[#fff5f6] border-[#bc3342]"
+                                  : "bg-white hover:bg-gray-50"
+                              }`}
+                            >
+                              <span className="font-medium">{branch.name}</span>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleSelectedBranch(branch.id)}
+                                className="h-4 w-4 accent-[#bc3342]"
+                                disabled={saving}
+                              />
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
                 )}
                 {!isEditing && selectedBranchIds.length > 0 && (
@@ -682,6 +880,77 @@ const Users: React.FC = () => {
                   </p>
                 )}
               </div>
+              {isTechnicianSelected && (
+                <div className="col-span-full">
+                  <label className="kfc-label">Assigned Item Categories</label>
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        className="kfc-input pl-9"
+                        placeholder="Search item categories..."
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        disabled={saving || loadingCategories}
+                      />
+                    </div>
+                    <div className="border rounded-md max-h-48 overflow-y-auto p-2 space-y-1 bg-white">
+                      {loadingCategories ? (
+                        <p className="text-sm text-gray-500 px-1 py-2 flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Loading categories...
+                        </p>
+                      ) : categories.length === 0 ? (
+                        <p className="text-sm text-gray-500 px-1 py-2">
+                          No item categories available.
+                        </p>
+                      ) : filteredCategories.length === 0 ? (
+                        <p className="text-sm text-gray-500 px-1 py-2">
+                          No item categories match your search.
+                        </p>
+                      ) : (
+                        filteredCategories.map((category) => {
+                          const checked = selectedCategoryIds.includes(
+                            category.id,
+                          );
+                          return (
+                            <label
+                              key={category.id}
+                              className={`flex items-center justify-between gap-2 border rounded-md px-3 py-2 text-sm cursor-pointer transition ${
+                                checked
+                                  ? "bg-[#fff5f6] border-[#bc3342]"
+                                  : "bg-white hover:bg-gray-50"
+                              }`}
+                            >
+                              <span className="font-medium">{category.name}</span>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  toggleSelectedCategory(category.id)
+                                }
+                                className="h-4 w-4 accent-[#bc3342]"
+                                disabled={saving || loadingCategories}
+                              />
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                  {selectedCategoryIds.length > 0 ? (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {selectedCategoryIds.length} categor
+                      {selectedCategoryIds.length === 1 ? "y" : "ies"} selected
+                    </p>
+                  ) : (
+                    <p className="text-xs text-red-600 mt-1">
+                      At least one item category is required for Technicians.
+                    </p>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="kfc-label">Region</label>
                 <select

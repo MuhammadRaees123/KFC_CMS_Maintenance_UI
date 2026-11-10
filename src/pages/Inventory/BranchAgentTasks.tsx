@@ -206,7 +206,6 @@ const BranchAgentTasks: React.FC = () => {
           pickField(row, "serialNumber", "SerialNumber"),
           pickField(row, "description", "Description"),
           pickField(row, "categoryName", "CategoryName"),
-          pickField(row, "tradeName", "TradeName"),
         ]
           .map((v) => String(v ?? "").toLowerCase())
           .join(" ");
@@ -708,7 +707,7 @@ const BranchAgentTasks: React.FC = () => {
                   <th className="border px-3 py-2 text-left">Item</th>
                   <th className="border px-3 py-2 text-left">Serial</th>
                   <th className="border px-3 py-2 text-left">Branch</th>
-                  <th className="border px-3 py-2 text-left">Category / Trade</th>
+                  <th className="border px-3 py-2 text-left">Category</th>
                   <th className="border px-3 py-2 text-left">Job Time</th>
                   <th className="border px-3 py-2 text-left">Priority</th>
                   <th className="border px-3 py-2 text-left">Status</th>
@@ -746,8 +745,6 @@ const BranchAgentTasks: React.FC = () => {
                     );
                     const categoryName =
                       pickField(row, "categoryName", "CategoryName") || "-";
-                    const tradeName =
-                      pickField(row, "tradeName", "TradeName") || "";
                     return (
                       <tr
                         key={`${row.__source}-${requestId}`}
@@ -789,11 +786,7 @@ const BranchAgentTasks: React.FC = () => {
                             pickField<number>(row, "branchId", "BranchId"),
                           )}
                         </td>
-                        <td className="border px-3 py-1.5">
-                          {tradeName
-                            ? `${categoryName} / ${tradeName}`
-                            : categoryName}
-                        </td>
+                        <td className="border px-3 py-1.5">{categoryName}</td>
                         <td className="border px-3 py-1.5">
                           {isAvailable
                             ? "-"
