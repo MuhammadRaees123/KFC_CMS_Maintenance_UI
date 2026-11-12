@@ -454,392 +454,774 @@ const Assets: React.FC = () => {
         </TabsList>
 
         <TabsContent value="grid">
-      <div className="kfc-card">
-        <div className="kfc-card-header py-6 flex items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold whitespace-nowrap">
-            Inventory Items
-          </h2>
-
-          <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
-            <select
-              className="kfc-input w-auto min-w-[150px]"
-              value={filterBranchId}
-              onChange={(e) => setFilterBranchId(e.target.value)}
-            >
-              <option value="">All Branches</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="kfc-input w-auto min-w-[150px]"
-              value={filterCategoryName}
-              onChange={(e) => setFilterCategoryName(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              {categories.map((c: any) => {
-                const name = c.categoryName ?? c.CategoryName;
-                const id =
-                  c.inventoryCategoryId ?? c.InventoryCategoryId ?? name;
-
-                if (!name) return null;
-
-                return (
-                  <option key={id} value={name}>
-                    {name}
-                  </option>
-                );
-              })}
-            </select>
-
-            <select
-              className="kfc-input w-auto min-w-[130px]"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All Statuses</option>
-              {INVENTORY_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="kfc-input w-auto min-w-[140px]"
-              value={filterCondition}
-              onChange={(e) => setFilterCondition(e.target.value)}
-            >
-              <option value="">All Conditions</option>
-              {INVENTORY_CONDITIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-
-            <input
-              className="kfc-input w-auto min-w-[220px]"
-              placeholder="Search serial / tag / item..."
-              value={filterSearch}
-              onChange={(e) => setFilterSearch(e.target.value)}
-            />
-
-            <button
-              type="button"
-              className="kfc-btn whitespace-nowrap"
-              onClick={() => fetchAssets()}
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-        <div className="p-3 overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="animate-spin text-red-600 w-8 h-8" />
-            </div>
-          ) : (
-            <table className="min-w-full border text-sm">
-              <thead className="bg-[#fff6f6] text-[#bc3342]">
-                <tr>
-                  <th className="border px-3 py-2 text-left">Serial Number</th>
-                  <th className="border px-3 py-2 text-left">Asset Tag</th>
-                  <th className="border px-3 py-2 text-left">Item</th>
-                  <th className="border px-3 py-2 text-left">Category</th>
-                  <th className="border px-3 py-2 text-left">Branch</th>
-                  <th className="border px-3 py-2 text-left">Status</th>
-                  <th className="border px-3 py-2 text-left">Condition</th>
-                  <th className="border px-3 py-2 text-left">Purchase</th>
-                  <th className="border px-3 py-2 text-left">Location</th>
-                  <th className="border px-3 py-2 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length > 0 ? (
-                  rows.map((row) => (
-                    <tr key={row.inventoryItemId} className="hover:bg-gray-50">
-                      <td className="border px-3 py-1.5 font-medium">
-                        {row.serialNumber}
-                      </td>
-                      <td className="border px-3 py-1.5">
-                        {row.assetTag || "-"}
-                      </td>
-                      <td className="border px-3 py-1.5">
-                        <div>{row.itemName || "-"}</div>
-                        <div className="text-xs text-gray-500">
-                          {row.itemCode}
-                        </div>
-                      </td>
-                      <td className="border px-3 py-1.5">
-                        {row.categoryName || "-"}
-                      </td>
-                      <td className="border px-3 py-1.5">
-                        {branchName(row.branchId)}
-                      </td>
-                      <td className="border px-3 py-1.5">
-                        <StatusBadge value={row.status} />
-                      </td>
-                      <td className="border px-3 py-1.5">
-                        <StatusBadge value={row.condition} kind="condition" />
-                      </td>
-                      <td className="border px-3 py-1.5">
-                        <div>{formatDate(row.purchaseDate)}</div>
-                        <div className="text-xs text-gray-500">
-                          {formatMoney(row.purchasePrice)}
-                        </div>
-                      </td>
-                      <td className="border px-3 py-1.5">
-                        {row.location || "-"}
-                      </td>
-                      <td className="border px-3 py-1.5 text-center whitespace-nowrap space-x-1">
-                        <button
-                          type="button"
-                          title="Edit"
-                          className="kfc-btn-outline p-1.5 rounded-md"
-                          onClick={() => handleEdit(row)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          title="Transfer"
-                          className="kfc-btn-outline p-1.5 rounded-md"
-                          onClick={() => openTransfer(row)}
-                        >
-                          <ArrowRightLeft className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          title="History"
-                          className="kfc-btn-outline p-1.5 rounded-md"
-                          onClick={() => openHistory(row)}
-                        >
-                          <History className="w-4 h-4" />
-                        </button>
-                        {/* <button
-                          type="button"
-                          title="Create Complaint"
-                          className="kfc-btn-outline p-1.5 rounded-md"
-                          onClick={() => openComplaint(row)}
-                        >
-                          <Wrench className="w-4 h-4" />
-                        </button> */}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={10}
-                      className="border px-3 py-4 text-center text-gray-500"
-                    >
-                      No inventory items found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+      <div className="kfc-card">
+
+        <div className="kfc-card-header py-6 flex items-center justify-between gap-4">
+
+          <h2 className="text-lg font-semibold whitespace-nowrap">
+
+            Inventory Items
+
+          </h2>
+
+
+
+          <div className="flex items-center gap-2 flex-nowrap overflow-x-auto">
+
+            <select
+
+              className="kfc-input w-auto min-w-[150px]"
+
+              value={filterBranchId}
+
+              onChange={(e) => setFilterBranchId(e.target.value)}
+
+            >
+
+              <option value="">All Branches</option>
+
+              {branches.map((b) => (
+
+                <option key={b.id} value={b.id}>
+
+                  {b.name}
+
+                </option>
+
+              ))}
+
+            </select>
+
+
+
+            <select
+
+              className="kfc-input w-auto min-w-[150px]"
+
+              value={filterCategoryName}
+
+              onChange={(e) => setFilterCategoryName(e.target.value)}
+
+            >
+
+              <option value="">All Categories</option>
+
+              {categories.map((c: any) => {
+
+                const name = c.categoryName ?? c.CategoryName;
+
+                const id =
+
+                  c.inventoryCategoryId ?? c.InventoryCategoryId ?? name;
+
+
+
+                if (!name) return null;
+
+
+
+                return (
+
+                  <option key={id} value={name}>
+
+                    {name}
+
+                  </option>
+
+                );
+
+              })}
+
+            </select>
+
+
+
+            <select
+
+              className="kfc-input w-auto min-w-[130px]"
+
+              value={filterStatus}
+
+              onChange={(e) => setFilterStatus(e.target.value)}
+
+            >
+
+              <option value="">All Statuses</option>
+
+              {INVENTORY_STATUSES.map((s) => (
+
+                <option key={s} value={s}>
+
+                  {s}
+
+                </option>
+
+              ))}
+
+            </select>
+
+
+
+            <select
+
+              className="kfc-input w-auto min-w-[140px]"
+
+              value={filterCondition}
+
+              onChange={(e) => setFilterCondition(e.target.value)}
+
+            >
+
+              <option value="">All Conditions</option>
+
+              {INVENTORY_CONDITIONS.map((c) => (
+
+                <option key={c} value={c}>
+
+                  {c}
+
+                </option>
+
+              ))}
+
+            </select>
+
+
+
+            <input
+
+              className="kfc-input w-auto min-w-[220px]"
+
+              placeholder="Search serial / tag / item..."
+
+              value={filterSearch}
+
+              onChange={(e) => setFilterSearch(e.target.value)}
+
+            />
+
+
+
+            <button
+
+              type="button"
+
+              className="kfc-btn whitespace-nowrap"
+
+              onClick={() => fetchAssets()}
+
+            >
+
+              Apply
+
+            </button>
+
+          </div>
+
+        </div>
+
+        <div className="p-3 overflow-x-auto">
+
+          {loading ? (
+
+            <div className="flex justify-center py-8">
+
+              <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+
+            </div>
+
+          ) : (
+
+            <table className="min-w-full border text-sm">
+
+              <thead className="bg-[#fff6f6] text-[#bc3342]">
+
+                <tr>
+
+                  <th className="border px-3 py-2 text-left">Serial Number</th>
+
+                  <th className="border px-3 py-2 text-left">Asset Tag</th>
+
+                  <th className="border px-3 py-2 text-left">Item</th>
+
+                  <th className="border px-3 py-2 text-left">Category</th>
+
+                  <th className="border px-3 py-2 text-left">Branch</th>
+
+                  <th className="border px-3 py-2 text-left">Status</th>
+
+                  <th className="border px-3 py-2 text-left">Condition</th>
+
+                  <th className="border px-3 py-2 text-left">Purchase</th>
+
+                  <th className="border px-3 py-2 text-left">Location</th>
+
+                  <th className="border px-3 py-2 text-center">Actions</th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {rows.length > 0 ? (
+
+                  rows.map((row) => (
+
+                    <tr key={row.inventoryItemId} className="hover:bg-gray-50">
+
+                      <td className="border px-3 py-1.5 font-medium">
+
+                        {row.serialNumber}
+
+                      </td>
+
+                      <td className="border px-3 py-1.5">
+
+                        {row.assetTag || "-"}
+
+                      </td>
+
+                      <td className="border px-3 py-1.5">
+
+                        <div>{row.itemName || "-"}</div>
+
+                        <div className="text-xs text-gray-500">
+
+                          {row.itemCode}
+
+                        </div>
+
+                      </td>
+
+                      <td className="border px-3 py-1.5">
+
+                        {row.categoryName || "-"}
+
+                      </td>
+
+                      <td className="border px-3 py-1.5">
+
+                        {branchName(row.branchId)}
+
+                      </td>
+
+                      <td className="border px-3 py-1.5">
+
+                        <StatusBadge value={row.status} />
+
+                      </td>
+
+                      <td className="border px-3 py-1.5">
+
+                        <StatusBadge value={row.condition} kind="condition" />
+
+                      </td>
+
+                      <td className="border px-3 py-1.5">
+
+                        <div>{formatDate(row.purchaseDate)}</div>
+
+                        <div className="text-xs text-gray-500">
+
+                          {formatMoney(row.purchasePrice)}
+
+                        </div>
+
+                      </td>
+
+                      <td className="border px-3 py-1.5">
+
+                        {row.location || "-"}
+
+                      </td>
+
+                      <td className="border px-3 py-1.5 text-center whitespace-nowrap space-x-1">
+
+                        <button
+
+                          type="button"
+
+                          title="Edit"
+
+                          className="kfc-btn-outline p-1.5 rounded-md"
+
+                          onClick={() => handleEdit(row)}
+
+                        >
+
+                          <Pencil className="w-4 h-4" />
+
+                        </button>
+
+                        <button
+
+                          type="button"
+
+                          title="Transfer"
+
+                          className="kfc-btn-outline p-1.5 rounded-md"
+
+                          onClick={() => openTransfer(row)}
+
+                        >
+
+                          <ArrowRightLeft className="w-4 h-4" />
+
+                        </button>
+
+                        <button
+
+                          type="button"
+
+                          title="History"
+
+                          className="kfc-btn-outline p-1.5 rounded-md"
+
+                          onClick={() => openHistory(row)}
+
+                        >
+
+                          <History className="w-4 h-4" />
+
+                        </button>
+
+                        {/* <button
+
+                          type="button"
+
+                          title="Create Complaint"
+
+                          className="kfc-btn-outline p-1.5 rounded-md"
+
+                          onClick={() => openComplaint(row)}
+
+                        >
+
+                          <Wrench className="w-4 h-4" />
+
+                        </button> */}
+
+                      </td>
+
+                    </tr>
+
+                  ))
+
+                ) : (
+
+                  <tr>
+
+                    <td
+
+                      colSpan={10}
+
+                      className="border px-3 py-4 text-center text-gray-500"
+
+                    >
+
+                      No inventory items found.
+
+                    </td>
+
+                  </tr>
+
+                )}
+
+              </tbody>
+
+            </table>
+
+          )}
+
+        </div>
+
       </div>
         </TabsContent>
 
         <TabsContent value="form">
-      <div className="kfc-card">
-        <div className="kfc-card-header">
-          {isEditing ? "Edit Inventory Item" : "Add Inventory Item"}
-        </div>
-        <form onSubmit={handleSubmit} className="kfc-form p-4">
-          <div>
-            <label className="kfc-label">Item</label>
-            <select
-              name="ItemId"
-              value={formData.ItemId}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            >
-              <option value="">-- Select Item --</option>
-              {items.map((item) => (
-                <option key={item.itemId} value={item.itemId}>
-                  {item.itemCode} — {item.itemName}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Branch</label>
-            <select
-              name="BranchId"
-              value={formData.BranchId}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            >
-              <option value="">-- Select Branch --</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Serial Number</label>
-            <input
-              name="SerialNumber"
-              value={formData.SerialNumber}
-              onChange={handleChange}
-              className="kfc-input"
-              required
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Asset Tag</label>
-            <input
-              name="AssetTag"
-              value={formData.AssetTag}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Status</label>
-            <select
-              name="Status"
-              value={formData.Status}
-              onChange={handleChange}
-              className="kfc-input"
-            >
-              {INVENTORY_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Condition</label>
-            <select
-              name="Condition"
-              value={formData.Condition}
-              onChange={handleChange}
-              className="kfc-input"
-            >
-              {INVENTORY_CONDITIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="kfc-label">Purchase Date</label>
-            <input
-              type="date"
-              name="PurchaseDate"
-              value={formData.PurchaseDate}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Purchase Price</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              name="PurchasePrice"
-              value={formData.PurchasePrice}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Warranty Start</label>
-            <input
-              type="date"
-              name="WarrantyStartDate"
-              value={formData.WarrantyStartDate}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Warranty End</label>
-            <input
-              type="date"
-              name="WarrantyEndDate"
-              value={formData.WarrantyEndDate}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Expiry Date</label>
-            <input
-              type="date"
-              name="ExpiryDate"
-              value={formData.ExpiryDate}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Invoice Number</label>
-            <input
-              name="InvoiceNumber"
-              value={formData.InvoiceNumber}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div>
-            <label className="kfc-label">Location</label>
-            <input
-              name="Location"
-              value={formData.Location}
-              onChange={handleChange}
-              className="kfc-input"
-            />
-          </div>
-          <div className="col-span-full">
-            <label className="kfc-label">Notes</label>
-            <textarea
-              name="Notes"
-              value={formData.Notes}
-              onChange={handleChange}
-              className="kfc-input min-h-[70px]"
-            />
-          </div>
-          <div className="kfc-switch">
-            <span>Active</span>
-            <Switch
-              checked={formData.IsActive}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, IsActive: checked }))
-              }
-            />
-          </div>
-          <div className="col-span-full flex justify-end gap-2 mt-2">
-            {isEditing && (
-              <button
-                type="button"
-                className="kfc-btn-outline"
-                onClick={handleCancel}
-              >
-                Cancel
-              </button>
-            )}
-            <button type="submit" className="kfc-btn" disabled={saving}>
-              {saving ? "Saving..." : isEditing ? "Update Asset" : "Save Asset"}
-            </button>
-          </div>
-        </form>
+      <div className="kfc-card">
+
+        <div className="kfc-card-header">
+
+          {isEditing ? "Edit Inventory Item" : "Add Inventory Item"}
+
+        </div>
+
+        <form onSubmit={handleSubmit} className="kfc-form p-4">
+
+          <div>
+
+            <label className="kfc-label">Item</label>
+
+            <select
+
+              name="ItemId"
+
+              value={formData.ItemId}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+              required
+
+            >
+
+              <option value="">-- Select Item --</option>
+
+              {items.map((item) => (
+
+                <option key={item.itemId} value={item.itemId}>
+
+                  {item.itemCode} — {item.itemName}
+
+                </option>
+
+              ))}
+
+            </select>
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Branch</label>
+
+            <select
+
+              name="BranchId"
+
+              value={formData.BranchId}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+              required
+
+            >
+
+              <option value="">-- Select Branch --</option>
+
+              {branches.map((b) => (
+
+                <option key={b.id} value={b.id}>
+
+                  {b.name}
+
+                </option>
+
+              ))}
+
+            </select>
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Serial Number</label>
+
+            <input
+
+              name="SerialNumber"
+
+              value={formData.SerialNumber}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+              required
+
+            />
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Asset Tag</label>
+
+            <input
+
+              name="AssetTag"
+
+              value={formData.AssetTag}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            />
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Status</label>
+
+            <select
+
+              name="Status"
+
+              value={formData.Status}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            >
+
+              {INVENTORY_STATUSES.map((s) => (
+
+                <option key={s} value={s}>
+
+                  {s}
+
+                </option>
+
+              ))}
+
+            </select>
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Condition</label>
+
+            <select
+
+              name="Condition"
+
+              value={formData.Condition}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            >
+
+              {INVENTORY_CONDITIONS.map((c) => (
+
+                <option key={c} value={c}>
+
+                  {c}
+
+                </option>
+
+              ))}
+
+            </select>
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Purchase Date</label>
+
+            <input
+
+              type="date"
+
+              name="PurchaseDate"
+
+              value={formData.PurchaseDate}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            />
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Purchase Price</label>
+
+            <input
+
+              type="number"
+
+              step="0.01"
+
+              min="0"
+
+              name="PurchasePrice"
+
+              value={formData.PurchasePrice}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            />
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Warranty Start</label>
+
+            <input
+
+              type="date"
+
+              name="WarrantyStartDate"
+
+              value={formData.WarrantyStartDate}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            />
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Warranty End</label>
+
+            <input
+
+              type="date"
+
+              name="WarrantyEndDate"
+
+              value={formData.WarrantyEndDate}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            />
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Expiry Date</label>
+
+            <input
+
+              type="date"
+
+              name="ExpiryDate"
+
+              value={formData.ExpiryDate}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            />
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Invoice Number</label>
+
+            <input
+
+              name="InvoiceNumber"
+
+              value={formData.InvoiceNumber}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            />
+
+          </div>
+
+          <div>
+
+            <label className="kfc-label">Location</label>
+
+            <input
+
+              name="Location"
+
+              value={formData.Location}
+
+              onChange={handleChange}
+
+              className="kfc-input"
+
+            />
+
+          </div>
+
+          <div className="col-span-full">
+
+            <label className="kfc-label">Notes</label>
+
+            <textarea
+
+              name="Notes"
+
+              value={formData.Notes}
+
+              onChange={handleChange}
+
+              className="kfc-input min-h-[70px]"
+
+            />
+
+          </div>
+
+          <div className="kfc-switch">
+
+            <span>Active</span>
+
+            <Switch
+
+              checked={formData.IsActive}
+
+              onCheckedChange={(checked) =>
+
+                setFormData((prev) => ({ ...prev, IsActive: checked }))
+
+              }
+
+            />
+
+          </div>
+
+          <div className="col-span-full flex justify-end gap-2 mt-2">
+
+            {isEditing && (
+
+              <button
+
+                type="button"
+
+                className="kfc-btn-outline"
+
+                onClick={handleCancel}
+
+              >
+
+                Cancel
+
+              </button>
+
+            )}
+
+            <button type="submit" className="kfc-btn" disabled={saving}>
+
+              {saving ? "Saving..." : isEditing ? "Update Asset" : "Save Asset"}
+
+            </button>
+
+          </div>
+
+        </form>
+
       </div>
         </TabsContent>
       </Tabs>

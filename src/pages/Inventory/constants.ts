@@ -159,22 +159,11 @@ export function complaintRowClassName(isExpired: boolean) {
   return isExpired ? "bg-red-100 hover:bg-red-200" : "hover:bg-gray-50";
 }
 
-// export const INVENTORY_STATUSES = [
-//   "Active",
-//   "UnderRepair",
-//   "Inactive",
-//   "Disposed",
-// ] as const;
 export const INVENTORY_STATUSES = [
   "Active",
-  "Open",
-  "Approved",
-  "Assigned",
-  "InProgress",
-  "Pending",
-  "WorkLoad",
-  "SparePartRequired",
-  "Repaired",
+  "UnderRepair",
+  "Inactive",
+  "Disposed",
 ] as const;
 
 export const INVENTORY_CONDITIONS = [

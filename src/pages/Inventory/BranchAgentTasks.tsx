@@ -1,35 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { Eye, Loader2, RefreshCcw } from "lucide-react";
-import {
-  acceptMaintenanceComplaint,
-  completeMaintenanceRepair,
-  getAvailableMaintenanceComplaints,
-  getBranchesForDashboard,
-  getMaintenanceById,
-  getMaintenanceHistory,
-  getMaintenanceList,
-  startMaintenance,
-  updateMaintenanceTechnicianStatus,
-  getUsers,
+import { acceptMaintenanceComplaint, completeMaintenanceRepair, getAvailableMaintenanceComplaints, getBranchesForDashboard,
+  getMaintenanceById, getMaintenanceHistory, getMaintenanceList, startMaintenance, updateMaintenanceTechnicianStatus, getUsers,
 } from "@/services/api";
 import { getCurrentUser } from "@/types/auth";
 import InventoryModal from "./components/InventoryModal";
 import MaintenanceImagePicker from "./components/MaintenanceImagePicker";
 import MaintenanceReadOnlyView from "./components/MaintenanceReadOnlyView";
 import StatusBadge from "./components/StatusBadge";
-import {
-  apiErrorMessage,
-  calculateRemainingJobTime,
-  complaintRowClassName,
-  formatDateTime,
-  formatJobTime,
-  isTechnicianWorkStatus,
-  JOB_TIME_OPTIONS,
-  parseJobTimeHours,
-  pickField,
-  PRIORITIES,
-} from "./constants";
+import { apiErrorMessage, calculateRemainingJobTime, complaintRowClassName, formatDateTime, formatJobTime, isTechnicianWorkStatus,
+  JOB_TIME_OPTIONS, parseJobTimeHours, pickField, PRIORITIES,} from "./constants";
 
 const PAGE_SIZE = 10;
 
@@ -98,7 +79,8 @@ const BranchAgentTasks: React.FC = () => {
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
   const [search, setSearch] = useState("");
-  const [pageNumber, setPageNumber] = useState(1);
+  const [assignedPageNumber, setAssignedPageNumber] = useState(1);
+  const [availablePageNumber, setAvailablePageNumber] = useState(1);
 
   const [actionKind, setActionKind] = useState<ActionKind>(null);
   const [actionRow, setActionRow] = useState<MaintenanceRow | null>(null);
@@ -218,7 +200,8 @@ const BranchAgentTasks: React.FC = () => {
   const refreshBothLists = async (options?: { resetPage?: boolean }) => {
     const resetPage = options?.resetPage !== false;
     if (resetPage) {
-      setPageNumber(1);
+      setAssignedPageNumber(1);
+      setAvailablePageNumber(1);
     }
 
     if (!currentUserId) {
@@ -313,58 +296,87 @@ const BranchAgentTasks: React.FC = () => {
     return () => window.clearInterval(timerId);
   }, []);
 
-  const unifiedRows = useMemo(() => {
-    const assignedIds = new Set<number>();
-    const assignedList: UnifiedTaskRow[] = [];
-
+  const assignedIds = useMemo(() => {
+    const ids = new Set<number>();
     rows.forEach((row) => {
       const requestId = requestIdOf(row);
-      if (requestId > 0) assignedIds.add(requestId);
-      assignedList.push({ ...row, __source: "assigned" });
+      if (requestId > 0) ids.add(requestId);
     });
+    return ids;
+  }, [rows]);
 
-    const sortedAssignedRows = sortNewestFirst(assignedList, [
+  const assignedTaskRows = useMemo(() => {
+    const assignedList: UnifiedTaskRow[] = rows.map((row) => ({
+      ...row,
+      __source: "assigned" as const,
+    }));
+
+    return sortNewestFirst(assignedList, [
       "assignedDate",
       "AssignedDate",
       "reportedDate",
       "ReportedDate",
     ]);
+  }, [rows]);
 
+  const availableTaskRows = useMemo(() => {
     const availableList: UnifiedTaskRow[] = [];
     availableRows.forEach((row) => {
       const requestId = requestIdOf(row);
       // Prefer assigned when the same complaint appears in both datasets.
       if (requestId > 0 && assignedIds.has(requestId)) return;
-      // Status filter is for My Assigned only (Open/Approved available rows
-      // must remain visible after assigned rows in the unified list).
       availableList.push({ ...row, __source: "available" });
     });
 
-    const sortedAvailableRows = sortNewestFirst(availableList, [
+    return sortNewestFirst(availableList, [
       "reportedDate",
       "ReportedDate",
       "createdDate",
       "CreatedDate",
     ]);
+  }, [availableRows, assignedIds]);
 
-    return [...sortedAssignedRows, ...sortedAvailableRows];
-  }, [rows, availableRows]);
+  const assignedTotalRecords = assignedTaskRows.length;
+  const assignedTotalPages = Math.max(
+    1,
+    Math.ceil(assignedTotalRecords / PAGE_SIZE) || 1,
+  );
+  const assignedCurrentPage = Math.min(
+    Math.max(1, assignedPageNumber),
+    assignedTotalPages,
+  );
+  const pagedAssignedRows = assignedTaskRows.slice(
+    (assignedCurrentPage - 1) * PAGE_SIZE,
+    assignedCurrentPage * PAGE_SIZE,
+  );
 
-  const totalRecords = unifiedRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / PAGE_SIZE) || 1);
-  const currentPage = Math.min(Math.max(1, pageNumber), totalPages);
-  const pagedRows = unifiedRows.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+  const availableTotalRecords = availableTaskRows.length;
+  const availableTotalPages = Math.max(
+    1,
+    Math.ceil(availableTotalRecords / PAGE_SIZE) || 1,
+  );
+  const availableCurrentPage = Math.min(
+    Math.max(1, availablePageNumber),
+    availableTotalPages,
+  );
+  const pagedAvailableRows = availableTaskRows.slice(
+    (availableCurrentPage - 1) * PAGE_SIZE,
+    availableCurrentPage * PAGE_SIZE,
   );
 
   // Clamp only when the current page exceeds the new page count (e.g. after filters).
   // Do not reset to page 1 on every rows/availableRows refresh — that broke pagination.
   useEffect(() => {
-    if (pageNumber > totalPages) {
-      setPageNumber(totalPages);
+    if (assignedPageNumber > assignedTotalPages) {
+      setAssignedPageNumber(assignedTotalPages);
     }
-  }, [pageNumber, totalPages]);
+  }, [assignedPageNumber, assignedTotalPages]);
+
+  useEffect(() => {
+    if (availablePageNumber > availableTotalPages) {
+      setAvailablePageNumber(availableTotalPages);
+    }
+  }, [availablePageNumber, availableTotalPages]);
 
   const openAction = (kind: ActionKind, row: MaintenanceRow) => {
     setActionKind(kind);
@@ -688,9 +700,10 @@ const BranchAgentTasks: React.FC = () => {
         </div>
       </div>
 
+      {availableTotalRecords > 0 && (
       <div className="kfc-card">
         <div className="kfc-card-header">
-          My Tasks ({rows.length} assigned, {availableRows.length} available)
+          Available Complaints ({availableTotalRecords})
         </div>
         <div className="p-3 overflow-x-auto">
           {loading ? (
@@ -716,8 +729,8 @@ const BranchAgentTasks: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {pagedRows.length > 0 ? (
-                  pagedRows.map((row) => {
+                {pagedAvailableRows.length > 0 ? (
+                  pagedAvailableRows.map((row) => {
                     const requestId = Number(
                       pickField(
                         row,
@@ -730,12 +743,182 @@ const BranchAgentTasks: React.FC = () => {
                       "status",
                       "Status",
                     );
-                    const isAvailable = row.__source === "available";
+                    const categoryName =
+                      pickField(row, "categoryName", "CategoryName") || "-";
+                    return (
+                      <tr
+                        key={`available-${requestId}`}
+                        className="hover:bg-gray-50"
+                      >
+                        <td className="border px-3 py-1.5">
+                          <span className="inline-flex px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                            Available
+                          </span>
+                        </td>
+                        <td className="border px-3 py-1.5">{requestId}</td>
+                        <td className="border px-3 py-1.5 font-medium">
+                          {pickField(row, "title", "Title") || "-"}
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          <div>
+                            {pickField(row, "itemName", "ItemName") || "-"}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {pickField(row, "itemCode", "ItemCode")}
+                          </div>
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          {pickField(row, "serialNumber", "SerialNumber") ||
+                            "-"}
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          {branchName(
+                            pickField<number>(row, "branchId", "BranchId"),
+                          )}
+                        </td>
+                        <td className="border px-3 py-1.5">{categoryName}</td>
+                        <td className="border px-3 py-1.5">-</td>
+                        <td className="border px-3 py-1.5">
+                          <StatusBadge
+                            value={pickField<string>(
+                              row,
+                              "priority",
+                              "Priority",
+                            )}
+                            kind="priority"
+                          />
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          <StatusBadge value={rowStatus} />
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          {formatDateTime(
+                            pickField(row, "reportedDate", "ReportedDate"),
+                          )}
+                        </td>
+                        <td className="border px-3 py-1.5">
+                          <div className="flex flex-wrap gap-1.5 justify-center">
+                            <button
+                              type="button"
+                              title="View"
+                              className="kfc-btn-outline p-1.5 rounded-md"
+                              onClick={() => openView(row)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="kfc-btn"
+                              disabled={acceptingId === requestId}
+                              onClick={() => acceptComplaint(row)}
+                            >
+                              {acceptingId === requestId ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Accepting...
+                                </span>
+                              ) : (
+                                "Accept Complaint"
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={12}
+                      className="border px-3 py-4 text-center text-gray-500"
+                    >
+                      No available maintenance complaints found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {!loading && availableTotalRecords > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 px-3 pb-3 text-sm">
+            <span>Total records: {availableTotalRecords}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="px-3 py-1 border rounded disabled:opacity-50"
+                disabled={availableCurrentPage <= 1}
+                onClick={() =>
+                  setAvailablePageNumber(availableCurrentPage - 1)
+                }
+              >
+                Previous
+              </button>
+              <span>
+                Page {availableCurrentPage} / {availableTotalPages}
+              </span>
+              <button
+                type="button"
+                className="px-3 py-1 border rounded disabled:opacity-50"
+                disabled={availableCurrentPage >= availableTotalPages}
+                onClick={() =>
+                  setAvailablePageNumber(availableCurrentPage + 1)
+                }
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      )}
+
+      <div className="kfc-card">
+        <div className="kfc-card-header">
+          My Tasks / Assigned Tasks ({assignedTotalRecords})
+        </div>
+        <div className="p-3 overflow-x-auto">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="animate-spin text-red-600 w-8 h-8" />
+            </div>
+          ) : (
+            <table className="min-w-full border text-sm">
+              <thead className="bg-[#fff6f6] text-[#bc3342]">
+                <tr>
+                  <th className="border px-3 py-2 text-left">Type</th>
+                  <th className="border px-3 py-2 text-left">Request #</th>
+                  <th className="border px-3 py-2 text-left">Title</th>
+                  <th className="border px-3 py-2 text-left">Item</th>
+                  <th className="border px-3 py-2 text-left">Serial</th>
+                  <th className="border px-3 py-2 text-left">Branch</th>
+                  <th className="border px-3 py-2 text-left">Category</th>
+                  <th className="border px-3 py-2 text-left">Job Time</th>
+                  <th className="border px-3 py-2 text-left">Priority</th>
+                  <th className="border px-3 py-2 text-left">Status</th>
+                  <th className="border px-3 py-2 text-left">Date</th>
+                  <th className="border px-3 py-2 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedAssignedRows.length > 0 ? (
+                  pagedAssignedRows.map((row) => {
+                    const requestId = Number(
+                      pickField(
+                        row,
+                        "maintenanceRequestId",
+                        "MaintenanceRequestId",
+                      ),
+                    );
+                    const rowStatus = pickField<string>(
+                      row,
+                      "status",
+                      "Status",
+                    );
                     const canAction =
-                      !isAvailable &&
-                      (rowStatus === "Assigned" ||
-                        rowStatus === "InProgress" ||
-                        isTechnicianWorkStatus(rowStatus));
+                      rowStatus === "Assigned" ||
+                      rowStatus === "InProgress" ||
+                      isTechnicianWorkStatus(rowStatus);
                     const remaining = calculateRemainingJobTime(
                       pickField(row, "assignedDate", "AssignedDate"),
                       pickField(row, "jobTimeHours", "JobTimeHours"),
@@ -747,22 +930,12 @@ const BranchAgentTasks: React.FC = () => {
                       pickField(row, "categoryName", "CategoryName") || "-";
                     return (
                       <tr
-                        key={`${row.__source}-${requestId}`}
-                        className={
-                          isAvailable
-                            ? "hover:bg-gray-50"
-                            : complaintRowClassName(remaining.isExpired)
-                        }
+                        key={`assigned-${requestId}`}
+                        className={complaintRowClassName(remaining.isExpired)}
                       >
                         <td className="border px-3 py-1.5">
-                          <span
-                            className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${
-                              isAvailable
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-purple-100 text-purple-800"
-                            }`}
-                          >
-                            {isAvailable ? "Available" : "My Assigned"}
+                          <span className="inline-flex px-2 py-0.5 rounded text-xs font-semibold bg-purple-100 text-purple-800">
+                            My Assigned
                           </span>
                         </td>
                         <td className="border px-3 py-1.5">{requestId}</td>
@@ -788,11 +961,9 @@ const BranchAgentTasks: React.FC = () => {
                         </td>
                         <td className="border px-3 py-1.5">{categoryName}</td>
                         <td className="border px-3 py-1.5">
-                          {isAvailable
-                            ? "-"
-                            : formatJobTime(
-                                pickField(row, "jobTimeHours", "JobTimeHours"),
-                              )}
+                          {formatJobTime(
+                            pickField(row, "jobTimeHours", "JobTimeHours"),
+                          )}
                         </td>
                         <td className="border px-3 py-1.5">
                           <StatusBadge
@@ -809,9 +980,7 @@ const BranchAgentTasks: React.FC = () => {
                         </td>
                         <td className="border px-3 py-1.5">
                           {formatDateTime(
-                            isAvailable
-                              ? pickField(row, "reportedDate", "ReportedDate")
-                              : pickField(row, "assignedDate", "AssignedDate"),
+                            pickField(row, "assignedDate", "AssignedDate"),
                           )}
                         </td>
                         <td className="border px-3 py-1.5">
@@ -824,63 +993,41 @@ const BranchAgentTasks: React.FC = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            {isAvailable ? (
+                            {rowStatus === "Assigned" && (
                               <button
                                 type="button"
                                 className="kfc-btn"
-                                disabled={acceptingId === requestId}
-                                onClick={() => acceptComplaint(row)}
+                                onClick={() => openAction("start", row)}
                               >
-                                {acceptingId === requestId ? (
-                                  <span className="inline-flex items-center gap-1">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    Accepting...
-                                  </span>
-                                ) : (
-                                  "Accept Complaint"
-                                )}
+                                Start
                               </button>
-                            ) : (
-                              <>
-                                {rowStatus === "Assigned" && (
-                                  <button
-                                    type="button"
-                                    className="kfc-btn"
-                                    onClick={() => openAction("start", row)}
-                                  >
-                                    Start
-                                  </button>
-                                )}
-                                {isTechnicianWorkStatus(rowStatus) && (
-                                  <button
-                                    type="button"
-                                    className="kfc-btn"
-                                    onClick={() => openAction("start", row)}
-                                  >
-                                    Resume
-                                  </button>
-                                )}
-                                {rowStatus === "InProgress" && (
-                                  <button
-                                    type="button"
-                                    className="kfc-btn"
-                                    onClick={() => openAction("complete", row)}
-                                  >
-                                    Complete Repair
-                                  </button>
-                                )}
-                                {canAction && (
-                                  <button
-                                    type="button"
-                                    className="kfc-btn-outline"
-                                    onClick={() =>
-                                      openAction("technician", row)
-                                    }
-                                  >
-                                    Action
-                                  </button>
-                                )}
-                              </>
+                            )}
+                            {isTechnicianWorkStatus(rowStatus) && (
+                              <button
+                                type="button"
+                                className="kfc-btn"
+                                onClick={() => openAction("start", row)}
+                              >
+                                Resume
+                              </button>
+                            )}
+                            {rowStatus === "InProgress" && (
+                              <button
+                                type="button"
+                                className="kfc-btn"
+                                onClick={() => openAction("complete", row)}
+                              >
+                                Complete Repair
+                              </button>
+                            )}
+                            {canAction && (
+                              <button
+                                type="button"
+                                className="kfc-btn-outline"
+                                onClick={() => openAction("technician", row)}
+                              >
+                                Action
+                              </button>
                             )}
                           </div>
                         </td>
@@ -893,7 +1040,7 @@ const BranchAgentTasks: React.FC = () => {
                       colSpan={12}
                       className="border px-3 py-4 text-center text-gray-500"
                     >
-                      No assigned or available maintenance tasks found.
+                      No assigned maintenance tasks found.
                     </td>
                   </tr>
                 )}
@@ -901,26 +1048,26 @@ const BranchAgentTasks: React.FC = () => {
             </table>
           )}
         </div>
-        {!loading && totalRecords > 0 && (
+        {!loading && assignedTotalRecords > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 px-3 pb-3 text-sm">
-            <span>Total records: {totalRecords}</span>
+            <span>Total records: {assignedTotalRecords}</span>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 className="px-3 py-1 border rounded disabled:opacity-50"
-                disabled={currentPage <= 1}
-                onClick={() => setPageNumber(currentPage - 1)}
+                disabled={assignedCurrentPage <= 1}
+                onClick={() => setAssignedPageNumber(assignedCurrentPage - 1)}
               >
                 Previous
               </button>
               <span>
-                Page {currentPage} / {totalPages}
+                Page {assignedCurrentPage} / {assignedTotalPages}
               </span>
               <button
                 type="button"
                 className="px-3 py-1 border rounded disabled:opacity-50"
-                disabled={currentPage >= totalPages}
-                onClick={() => setPageNumber(currentPage + 1)}
+                disabled={assignedCurrentPage >= assignedTotalPages}
+                onClick={() => setAssignedPageNumber(assignedCurrentPage + 1)}
               >
                 Next
               </button>
